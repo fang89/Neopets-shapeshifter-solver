@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://fang89.github.io/shapeshifter-solver/"><img src="docs/open.svg" alt="▶ Open the solver" width="420"></a>
+  <a href="https://fang89.github.io/Neopets-shapeshifter-solver/"><img src="docs/open.svg" alt="▶ Open the solver" width="420"></a>
 </p>
 
 <p align="center">
@@ -39,7 +39,7 @@ is uploaded.
 | **2** | **Solve** | It starts by itself. Most boards take a second or two. Big late-game boards take longer. |
 | **3** | **Place the pieces** | Follow the answer on the solver page, **or** drag the orange **Level N Solution** button to your bookmarks bar (favorites bar in Edge) and click it once in the game tab. The square to click then lights up after every piece. |
 
-<p align="center"><a href="https://fang89.github.io/shapeshifter-solver/"><img src="docs/open.svg" alt="▶ Open the solver" width="320"></a></p>
+<p align="center"><a href="https://fang89.github.io/Neopets-shapeshifter-solver/"><img src="docs/open.svg" alt="▶ Open the solver" width="320"></a></p>
 
 > The solver only highlights squares. It never clicks for you and never sends a score.
 
