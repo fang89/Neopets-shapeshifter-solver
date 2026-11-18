@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 300" width="760" height="300" role="img"><style>
+ .bg{fill:#ffffff;stroke:#d0d7de} .t{fill:#1f2328;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif} .m{fill:#59636e;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif}
+ .cell{fill:#f3f4f6;stroke:#d0d7de} .ln{stroke:#8c959f} .lnf{fill:#8c959f}
+ .s0{fill:#2da44e} .s1{fill:#f59e0b} .s2{fill:#3b82f6}
+ .hit{fill:#dbeafe;stroke:#3b82f6} .click{fill:none;stroke:#f97316}
+ .box{fill:#f6f8fa;stroke:#d0d7de} .acc{fill:#8250df} .accs{stroke:#8250df}
+ .ok{fill:#2da44e} .okb{fill:#dafbe1;stroke:#2da44e} .warnb{fill:#fff1e5;stroke:#f97316}
+ .pc{fill:#8250df}
+ @media (prefers-color-scheme: dark) {
+  .bg{fill:#0d1117;stroke:#30363d} .t{fill:#e6edf3} .m{fill:#9198a1}
+  .cell{fill:#161b22;stroke:#30363d} .ln{stroke:#6e7681} .lnf{fill:#6e7681}
+  .hit{fill:#0c2d6b;stroke:#58a6ff} .box{fill:#161b22;stroke:#30363d}
+  .okb{fill:#0f2e1b;stroke:#3fb950} .warnb{fill:#3a1d08;stroke:#f97316} .acc{fill:#a371f7} .accs{stroke:#a371f7} .pc{fill:#a371f7}
+ }
+</style><rect class="bg" x="0.5" y="0.5" width="759" height="299" rx="14"/><text class="t" x="24" y="38" font-size="20" text-anchor="start" font-weight="700">Why race three solvers?</text><text class="m" x="24" y="62" font-size="13.5" text-anchor="start" font-weight="400">34 real boards from live play: how many each setup solved within the time limit (native build, Oct 2026)</text><text class="t" x="24" y="112" font-size="13" text-anchor="start" font-weight="400">Exhaustive search alone (30 s)</text><rect class="cell" x="270" y="96" width="408" height="22" rx="5"/><rect class="acc" x="270" y="96" width="192" height="22" rx="5"/><text class="t" x="690" y="112" font-size="13" text-anchor="start" font-weight="700">16 / 34</text><text class="t" x="24" y="160" font-size="13" text-anchor="start" font-weight="400">Annealing alone (30 s)</text><rect class="cell" x="270" y="144" width="408" height="22" rx="5"/><rect class="acc" x="270" y="144" width="156" height="22" rx="5"/><text class="t" x="690" y="160" font-size="13" text-anchor="start" font-weight="700">13 / 34</text><text class="t" x="24" y="208" font-size="13" text-anchor="start" font-weight="400">Both together (30 s)</text><rect class="cell" x="270" y="192" width="408" height="22" rx="5"/><rect class="acc" x="270" y="192" width="240" height="22" rx="5"/><text class="t" x="690" y="208" font-size="13" text-anchor="start" font-weight="700">20 / 34</text><text class="t" x="24" y="256" font-size="13" text-anchor="start" font-weight="400">+ belief-guided search (60 s)</text><rect class="cell" x="270" y="240" width="408" height="22" rx="5"/><rect class="ok" x="270" y="240" width="324" height="22" rx="5"/><text class="t" x="690" y="256" font-size="13" text-anchor="start" font-weight="700">27 / 34</text></svg>
