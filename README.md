@@ -6,24 +6,27 @@
   <a href="https://fang89.github.io/shapeshifter-solver/"><b>▶ Open the solver</b></a>
   &nbsp;·&nbsp; <a href="#how-to-use">How to use</a>
   &nbsp;·&nbsp; <a href="#how-it-solves-a-board">How it works</a>
-  &nbsp;·&nbsp; <a href="#free-and-unlocked-levels">Unlock codes</a>
+  &nbsp;·&nbsp; <a href="#how-its-built">How it's built</a>
+  &nbsp;·&nbsp; <a href="#unlock">Unlock code</a>
 </p>
 
 ---
 
 **ShapeShifter Solver** works out the answer to a Neopets ShapeShifter board and shows you
 where each piece goes. It's one web page. The solver runs on your own computer, so nothing
-is uploaded. Levels 1–39 are free. For level 40 and up, email **gregoryfang89@gmail.com**
-for an unlock code.
+is uploaded.
 
-## Free and unlocked levels
+<a id="unlock"></a>
+<a href="mailto:gregoryfang89@gmail.com?subject=ShapeShifter%20Solver%20unlock%20code"><img src="docs/levels.svg" alt="Levels 1–39 free. Level 40 and up: email gregoryfang89@gmail.com for an unlock code, then enter it under License type." width="100%"></a>
 
-| Levels | Access |
-|---|---|
-| **1 – 39** | Free |
-| **40 and up** | Unlock code |
+<h3 align="center">✉️ Unlock code for level 40+ &nbsp;→&nbsp; <a href="mailto:gregoryfang89@gmail.com?subject=ShapeShifter%20Solver%20unlock%20code">gregoryfang89@gmail.com</a></h3>
 
-Enter your unlock code under **License type** at the top right of the solver.
+<br>
+
+<h1 align="center">⚙️ Under the hood</h1>
+<p align="center"><i>How to use it · how it solves a board · how it's built</i></p>
+
+---
 
 ## How to use
 
@@ -100,12 +103,37 @@ confirm it actually clears it.
 three engines compiled to WebAssembly, so on a slower computer it may need more time on the
 hardest boards.*
 
-## Under the hood
+## How it's built
 
-- **Solver:** about 1,300 lines of C compiled to **WebAssembly** with Emscripten, inlined into the
-  page. Nothing to install.
-- **Reading the board:** from the HTML you paste. The board, the icon cycle, the pieces and the
-  level number all come straight from the page's own markup, not from a screenshot.
-- **The bookmark:** a one-click bookmarklet that keeps the game in a full-page frame and talks to
-  the solver tab with `postMessage`. It sends the solver only the parsed board, never the page
-  itself, so nothing from your session leaves the game tab.
+<img src="docs/arch.svg" alt="One HTML file: page in plain JavaScript, three Web Workers running the C solver compiled to WebAssembly, and a bookmarklet in the game tab" width="100%">
+
+| Part | Language | Size |
+|---|---|---|
+| **Solver engine** — search, endgame table, belief propagation, annealing | **C** | ~1,300 lines |
+| **Page** — paste reading, the three steps, answer view | **JavaScript**, no framework, no libraries | ~600 lines |
+| **Board reader** — turns the copied game page into board, icon cycle and pieces | JavaScript | ~170 lines |
+| **Show-on-board bookmark** | JavaScript bookmarklet | ~200 lines |
+| **Unlock-code check** — Ed25519 signature, verified by the browser's built-in WebCrypto | JavaScript | ~70 lines |
+| **Layout and styles** | HTML + CSS | ~240 lines |
+| **Build** | Bash + Python | |
+| **Tests** — headless Chromium against a fake local game page, never the real site | Python + Playwright | ~330 lines |
+
+**From C to the browser.** The solver is written in C for speed and compiled to **WebAssembly**
+with Emscripten (`emcc -O3`). The `.wasm` is base64-encoded and inlined into the page together
+with all the JavaScript and CSS, so the whole thing is **one ~130 KB HTML file**: no server, no
+CDN, nothing to install.
+
+**Why three single-thread copies instead of one multi-threaded solver.** The native build uses a
+thread pool, but shared-memory threads in a browser need special cross-origin isolation headers,
+which GitHub Pages can't send and a page opened from disk can't get. So the page starts the same
+single-thread WebAssembly in three Web Workers, and each copy takes one role: exhaustive search,
+belief-guided search or annealing. That's the race in the diagram above. On a computer with fewer
+than 3 cores it starts only the first two.
+
+**Reading the board.** Everything comes from the HTML you paste: the board, the icon cycle, the
+pieces and the level number are read straight from the game page's own markup, not from a
+screenshot.
+
+**The bookmark.** One click wraps the game in a full-page frame and talks to the solver tab with
+`postMessage`. It sends the solver only the parsed board, never the page itself, so nothing from
+your session leaves the game tab. It only highlights squares: it never clicks and never submits.
