@@ -152,8 +152,6 @@ your session leaves the game tab. It only highlights squares: it never clicks an
 
 ## More Neopets solvers
 
-My other Neopets tools. All free; none of them plays for you or sends a score.
-
 | Tool | What it does | Links |
 |---|---|:-:|
 | **Sewage Surfer Solver** | Shows where each pipe goes, one move at a time, and when to discard, press Start Flow or restart. | <a href="https://fang89.github.io/Neopets-sewagesurfer-solver/">Link&nbsp;to&nbsp;solver</a><br><a href="https://github.com/fang89/Neopets-sewagesurfer-solver">Github&nbsp;link</a> |
