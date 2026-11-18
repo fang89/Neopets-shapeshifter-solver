@@ -11,6 +11,7 @@
   &nbsp;·&nbsp; <a href="#how-it-solves-a-board">How it works</a>
   &nbsp;·&nbsp; <a href="#how-its-built">How it's built</a>
   &nbsp;·&nbsp; <a href="#unlock">Unlock code</a>
+  &nbsp;·&nbsp; <a href="#more-neopets-solvers">More solvers</a>
 </p>
 
 ---
@@ -24,7 +25,7 @@ is uploaded.
 
 <h3 align="center">✉️ Unlock code for level 40+ &nbsp;→&nbsp; <a href="mailto:gregoryfang89@gmail.com?subject=ShapeShifter%20Solver%20unlock%20code">gregoryfang89@gmail.com</a></h3>
 
-<br>
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/divider-dark.svg"><img src="docs/divider.svg" alt="" width="100%"></picture></p>
 
 <h1 align="center">⚙️ Under the hood</h1>
 <p align="center"><i>How to use it · how it solves a board · how it's built</i></p>
@@ -42,6 +43,8 @@ is uploaded.
 <p align="center"><a href="https://fang89.github.io/Neopets-shapeshifter-solver/"><img src="docs/open.svg" alt="▶ Open the solver" width="320"></a></p>
 
 > The solver only highlights squares. It never clicks for you and never sends a score.
+
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/divider-dark.svg"><img src="docs/divider.svg" alt="" width="100%"></picture></p>
 
 ## How it solves a board
 
@@ -108,6 +111,8 @@ confirm it actually clears it.
 three engines compiled to WebAssembly, so on a slower computer it may need more time on the
 hardest boards.*
 
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/divider-dark.svg"><img src="docs/divider.svg" alt="" width="100%"></picture></p>
+
 ## How it's built
 
 <img src="docs/arch.svg" alt="One HTML file: page in plain JavaScript, three Web Workers running the C solver compiled to WebAssembly, and a bookmarklet in the game tab" width="100%">
@@ -142,3 +147,15 @@ screenshot.
 **The bookmark.** One click wraps the game in a full-page frame and talks to the solver tab with
 `postMessage`. It sends the solver only the parsed board, never the page itself, so nothing from
 your session leaves the game tab. It only highlights squares: it never clicks and never submits.
+
+<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/divider-dark.svg"><img src="docs/divider.svg" alt="" width="100%"></picture></p>
+
+## More Neopets solvers
+
+My other Neopets tools. All free; none of them plays for you or sends a score.
+
+| Tool | What it does | |
+|---|---|:-:|
+| **Sewage Surfer Solver** | Shows where each pipe goes, one move at a time, and when to discard, press Start Flow or restart. | <a href="https://fang89.github.io/Neopets-sewagesurfer-solver/">▶ Open</a> · <a href="https://github.com/fang89/Neopets-sewagesurfer-solver">Source</a> |
+| **NeggSweeper Solver** | Colours every negg safe, bad or best bet with exact odds. Never clicks. | <a href="https://fang89.github.io/Neopets-neggsweeper-solver/">▶ Open</a> · <a href="https://github.com/fang89/Neopets-neggsweeper-solver">Source</a> |
+| **Grand Theft Ummagine Guide** | A drawn map and key-tap route for every level. | <a href="https://github.com/fang89/grand-theft-ummagine-guide">Source</a> |
