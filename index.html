@@ -22,7 +22,7 @@
   * { box-sizing: border-box; }
   html { -webkit-text-size-adjust: 100%; }
   body { margin: 0; padding: 32px 16px 48px; background: var(--bg); color: var(--ink);
-         font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif; }
+         font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif; }
   main { max-width: 720px; margin: 0 auto; }
   header { display: flex; align-items: flex-start; gap: 16px; position: relative; }
   header .htxt { flex: 1; min-width: 0; }
@@ -47,7 +47,7 @@
   h2 { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--mute); margin: 0 0 10px; }
   ol.steps { margin: 0; padding-left: 20px; }
   ol.steps li { margin: 4px 0; }
-  kbd { font: 12px ui-monospace, Menlo, monospace; background: var(--field); border-radius: 5px; padding: 1px 6px; white-space: nowrap; }
+  kbd { font: 12px ui-monospace, Menlo, Consolas, monospace; background: var(--field); border-radius: 5px; padding: 1px 6px; white-space: nowrap; }
   .drop { margin-top: 12px; border: 1.5px dashed var(--line); border-radius: 12px; padding: 22px 16px; text-align: center;
           color: var(--mute); font-size: 15px; }
   .muted { color: var(--mute); font-size: 13px; }
@@ -116,9 +116,9 @@
   .mv.on .n { background: var(--warn); color: #fff; box-shadow: none; }
   .mv .pc { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--mute); }
   textarea, input[type=text] { width: 100%; font: inherit; color: inherit; background: var(--field); border: 0; border-radius: 10px; padding: 9px 11px; }
-  textarea { font: 12px/1.4 ui-monospace, Menlo, monospace; min-height: 72px; resize: vertical; }
+  textarea { font: 12px/1.4 ui-monospace, Menlo, Consolas, monospace; min-height: 72px; resize: vertical; }
   label { display: block; font-size: 13px; color: var(--mute); margin: 10px 0 5px; }
-  .prog { margin-top: 10px; font: 11px/1.4 ui-monospace, Menlo, monospace; color: var(--faint); word-break: break-word; }
+  .prog { margin-top: 10px; font: 11px/1.4 ui-monospace, Menlo, Consolas, monospace; color: var(--faint); word-break: break-word; }
   .bar { height: 4px; border-radius: 2px; background: var(--field); overflow: hidden; margin-top: 12px; }
   .bar i { display: block; height: 100%; width: 30%; background: var(--accent); border-radius: 2px; animation: slide 1.4s ease-in-out infinite; }
   @keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
@@ -215,7 +215,7 @@
       <div id="bmSetup">
         <div class="bmt">Let the game show you where each piece goes</div>
         <ol class="bmsteps">
-          <li><div>Drag this orange button up to your bookmarks bar.<div class="tiny">Only once. No bar? Press <kbd class="k-bar">Ctrl+Shift+B</kbd>.</div></div>
+          <li><div>Drag this orange button up to your bookmarks bar.<div class="tiny">Only once. No bar? Press <kbd class="k-bar">Ctrl+Shift+B</kbd>. In Edge it is called the favorites bar.</div></div>
             <a class="bm" id="bm" href="#" draggable="true">ShapeShifter Solution</a></li>
           <li><div>Open the game.</div><button class="small" id="openGame2">Open the game ↗</button></li>
           <li><div>In the game tab, click that bookmark once.</div></li>
@@ -368,7 +368,7 @@ shadow.innerHTML = `<style>
 :host { all: initial; }
 .card { position: fixed; top: 16px; right: 16px; z-index: 2147483647; width: 270px;
 display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px;
-font: 13px/1.4 -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+font: 13px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
 color: #1d1d1f; background: rgba(255,255,255,.94); border: .5px solid rgba(0,0,0,.12);
 border-radius: 14px; box-shadow: 0 12px 32px rgba(0,0,0,.16), 0 1px 3px rgba(0,0,0,.08); }
 .dot { flex: none; width: 8px; height: 8px; border-radius: 50%; margin-top: 6px; }
@@ -765,7 +765,10 @@ window.__sssFollow = show;
   'use strict';
   const P = globalThis.ShapePuzzle, L = globalThis.ShapeLicence;
   const $ = id => document.getElementById(id);
-  const MAC = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
+  // Shortcut labels: ⌘ on Apple machines, Ctrl everywhere else (Windows,
+  // Linux, ChromeOS). userAgentData first; navigator.platform is deprecated.
+  const PLATFORM = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || navigator.userAgent || '';
+  const MAC = /mac|iphone|ipad|ipod/i.test(PLATFORM);
   const HARD_AFTER_S = 180;
 
   const store = {
