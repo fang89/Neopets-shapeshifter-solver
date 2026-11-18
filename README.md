@@ -16,6 +16,15 @@ where each piece goes. It's one web page. The solver runs on your own computer, 
 is uploaded. Levels 1–39 are free. For level 40 and up, email **gregoryfang89@gmail.com**
 for an unlock code.
 
+## Free and unlocked levels
+
+| Levels | Access |
+|---|---|
+| **1 – 39** | Free |
+| **40 and up** | Unlock code |
+
+Enter your unlock code under **License type** at the top right of the solver.
+
 ## How to use
 
 | | Step | What you do |
@@ -100,12 +109,3 @@ hardest boards.*
 - **The bookmark:** a one-click bookmarklet that keeps the game in a full-page frame and talks to
   the solver tab with `postMessage`. It sends the solver only the parsed board, never the page
   itself, so nothing from your session leaves the game tab.
-
-## Free and unlocked levels
-
-| Levels | Access |
-|---|---|
-| **1 – 39** | Free |
-| **40 and up** | Unlock code |
-
-Enter your unlock code under **License type** at the top right of the solver.
