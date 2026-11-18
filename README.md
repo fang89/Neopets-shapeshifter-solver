@@ -99,8 +99,6 @@ hardest boards.*
 - **The bookmark:** a one-click bookmarklet that keeps the game in a full-page frame and talks to
   the solver tab with `postMessage`. It sends the solver only the parsed board, never the page
   itself, so nothing from your session leaves the game tab.
-- **Credit:** the exhaustive search follows Kero van Gelder's classic `ss.c` approach, extended
-  with the reach check, the endgame table, belief-guided search and annealing.
 
 ## Free and unlocked levels
 
