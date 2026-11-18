@@ -156,4 +156,5 @@ your session leaves the game tab. It only highlights squares: it never clicks an
 |---|---|:-:|
 | **Sewage Surfer Solver** | Shows where each pipe goes, one move at a time, and when to discard, press Start Flow or restart. | <a href="https://fang89.github.io/Neopets-sewagesurfer-solver/">Link&nbsp;to&nbsp;solver</a><br><a href="https://github.com/fang89/Neopets-sewagesurfer-solver">Github&nbsp;link</a> |
 | **NeggSweeper Solver** | Colours every negg safe, bad or best bet with exact odds. Never clicks. | <a href="https://fang89.github.io/Neopets-neggsweeper-solver/">Link&nbsp;to&nbsp;solver</a><br><a href="https://github.com/fang89/Neopets-neggsweeper-solver">Github&nbsp;link</a> |
-| **Grand Theft Ummagine Guide** | A drawn map and key-tap route for every level. | <a href="https://github.com/fang89/grand-theft-ummagine-guide">Github&nbsp;link</a> |
+| **Puzzles of the Past Solver** | Shows where each piece goes, with a crosshair at its home. | <a href="https://fang89.github.io/Neopets-puzzlesofthepast-solver/">Link&nbsp;to&nbsp;solver</a><br><a href="https://github.com/fang89/Neopets-puzzlesofthepast-solver">Github&nbsp;link</a> |
+| **Grand Theft Ummagine Guide** | A drawn map and key-tap route for every level. | <a href="https://github.com/fang89/Neopets-Grandtheftummagine-guide">Github&nbsp;link</a> |
