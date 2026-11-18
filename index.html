@@ -86,6 +86,8 @@
   .side .tiny + .piece { margin-bottom: 8px; }
   .next b { color: var(--warn); }
   .msg { margin: 12px 0 0; }
+  .getcode { font-size: 13px; color: var(--mute); }
+  .getcode a { color: var(--accent); }
   .err { color: var(--bad); font-size: 14px; margin-top: 8px; }
   .boardwrap { display: flex; gap: 16px; align-items: flex-start; margin-top: 12px; flex-wrap: wrap; }
   .board { display: grid; gap: 1px; padding: 3px; border-radius: 8px; background: var(--field); width: max-content; max-width: 100%; }
@@ -930,7 +932,7 @@ self.onmessage = e => {
     } else {
       sum.textContent = 'Free version';
       body.append(el('p', 'msg', `Levels 1–${L.FREE_LEVELS} are free. To unlock level ${L.FREE_LEVELS + 1} and up, enter the unlock code you were sent with the email address it was made for.`),
-        unlockForm(() => { $('unlockCard').open = true; }));
+        getCodeLine(), unlockForm(() => { $('unlockCard').open = true; }));
     }
   }
   function onUnlocked() {
@@ -984,6 +986,15 @@ self.onmessage = e => {
   };
 
   // ------------------------------------------------------------ rendering
+  // Where to get a code; shown wherever the page asks for one.
+  const SELLER = 'gregoryfang89@gmail.com';
+  function getCodeLine() {
+    const a = el('a', null, SELLER);
+    a.href = 'mailto:' + SELLER + '?subject=' + encodeURIComponent('ShapeShifter Solver unlock code');
+    const p = el('p', 'msg getcode', 'No code yet? Email ');
+    p.append(a, ' to get the unlocked version.');
+    return p;
+  }
   function el(tag, cls, text) {
     const e = document.createElement(tag);
     if (cls) e.className = cls;
@@ -1204,7 +1215,7 @@ self.onmessage = e => {
       solveEl.append(header('Unlock code needed', levelText().replace(/ · $/, '')),
         el('p', 'msg', `Levels 1–${L.FREE_LEVELS} are free. Level ${next} and up needs an unlock code. Enter it with the email address it was made for.`));
     }
-    solveEl.append(unlockForm());
+    solveEl.append(getCodeLine(), unlockForm());
   }
 
   // ------------------------------------------------------------ paste
