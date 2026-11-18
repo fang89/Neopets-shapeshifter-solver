@@ -1,0 +1,1346 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Neopets ShapeShifter Solver</title>
+<style>
+  :root {
+    --bg: #f5f5f7; --card: #fff; --ink: #1d1d1f; --mute: #6e6e73; --faint: #8e8e93;
+    --line: rgba(0,0,0,.1); --field: rgba(118,118,128,.12); --accent: #007aff;
+    --ok: #34c759; --warn: #ff9500; --bad: #ff3b30; --lock: #af52de;
+    --cell-empty: #fff; --ink-rgb: 0,0,0;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #000; --card: #1c1c1e; --ink: #f5f5f7; --mute: #98989d; --faint: #8e8e93;
+      --line: rgba(255,255,255,.12); --field: rgba(118,118,128,.24); --accent: #0a84ff;
+      --ok: #30d158; --warn: #ff9f0a; --bad: #ff453a; --lock: #bf5af2;
+      --cell-empty: rgba(255,255,255,.06); --ink-rgb: 255,255,255;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; padding: 32px 16px 48px; background: var(--bg); color: var(--ink);
+         font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif; }
+  main { max-width: 720px; margin: 0 auto; }
+  header { display: flex; align-items: flex-start; gap: 16px; position: relative; }
+  header .htxt { flex: 1; min-width: 0; }
+  header h1 { font-size: 28px; margin: 0; letter-spacing: -.015em; }
+  header p { color: var(--mute); margin: 4px 0 24px; }
+  /* steps, top to bottom */
+  .step { margin-bottom: 0; transition: opacity .2s; }
+  .step.todo > * { opacity: .5; }
+  .step.todo > .bmbox { opacity: 1; }
+  .sh { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .sh h2 { margin: 0; font-size: 17px; font-weight: 600; text-transform: none; letter-spacing: -.01em; color: var(--ink); }
+  .sn { flex: none; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-size: 14px; font-weight: 700;
+        background: var(--field); color: var(--mute); }
+  .step.on .sn { background: var(--accent); color: #fff; }
+  .step.done .sn { background: var(--ok); color: #fff; font-size: 0; }
+  .step.done .sn::after { content: "✓"; font-size: 14px; }
+  .arrow { display: grid; place-items: center; height: 34px; color: var(--faint); }
+  .arrow svg { width: 18px; height: 22px; }
+  .side { flex-direction: row; align-items: flex-start; gap: 10px; }
+  @media (hover: none) { .keyhint { display: none; } }
+  .card { background: var(--card); border: .5px solid var(--line); border-radius: 16px; padding: 18px; margin-bottom: 16px; }
+  h2 { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--mute); margin: 0 0 10px; }
+  ol.steps { margin: 0; padding-left: 20px; }
+  ol.steps li { margin: 4px 0; }
+  kbd { font: 12px ui-monospace, Menlo, monospace; background: var(--field); border-radius: 5px; padding: 1px 6px; white-space: nowrap; }
+  .drop { margin-top: 12px; border: 1.5px dashed var(--line); border-radius: 12px; padding: 22px 16px; text-align: center;
+          color: var(--mute); font-size: 15px; }
+  .muted { color: var(--mute); font-size: 13px; }
+  .tiny { color: var(--faint); font-size: 12px; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  button { font: inherit; font-weight: 600; border: 0; border-radius: 10px; padding: 9px 16px; cursor: pointer;
+           background: var(--accent); color: #fff; }
+  button.ghost { background: var(--field); color: var(--accent); }
+  button.danger { background: var(--field); color: var(--bad); }
+  button:disabled { opacity: .4; cursor: default; }
+  button:focus-visible, textarea:focus-visible, input:focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 45%, transparent); outline-offset: 1px; }
+  .status { margin-top: 10px; font-size: 13px; color: var(--mute); min-height: 1.4em; }
+  .status.bad { color: var(--bad); } .status.ok { color: var(--ok); }
+  .status:empty { min-height: 0; margin: 0; }
+  .live { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--bad); margin-right: 6px;
+          animation: pulse 1.2s ease-in-out infinite alternate; vertical-align: 1px; }
+  @keyframes pulse { to { opacity: .25; } }
+  @media (prefers-reduced-motion: reduce) { .live, .cell.click::before { animation: none !important; } }
+
+  .hd { display: flex; align-items: center; gap: 10px; }
+  .dot { flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--faint); }
+  .hd .t { font-weight: 600; font-size: 17px; }
+  .hd .s { color: var(--mute); font-size: 13px; font-variant-numeric: tabular-nums; }
+  .hd .grow { flex: 1; min-width: 0; }
+  .empty { color: var(--mute); text-align: center; padding: 48px 12px; }
+  .next { margin: 14px 0 4px; font-size: 24px; font-weight: 600; letter-spacing: -.015em; }
+  .meter { height: 4px; border-radius: 2px; background: var(--field); overflow: hidden; margin-top: 12px; }
+  .meter i { display: block; height: 100%; background: var(--ok); border-radius: 2px; transition: width .3s; }
+  .keyrow { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 10px; font-size: 13px; color: var(--mute); }
+  .keyrow .sw { width: 14px; height: 14px; border-radius: 3px; flex: none; }
+  .keyrow .sw + .sw, .keyrow .sw:nth-of-type(2) { margin-left: 10px; }
+  .keyrow .sw.click { box-shadow: inset 0 0 0 3px var(--warn); }
+  .keyrow .sw.cover { background: rgba(0,122,255,.45); box-shadow: inset 0 0 0 1.5px #007aff; }
+  .keyhint { align-self: center; }
+  .boardwrap.dim { opacity: .55; }
+  .side .tiny + .piece { margin-bottom: 8px; }
+  .next b { color: var(--warn); }
+  .msg { margin: 12px 0 0; }
+  .err { color: var(--bad); font-size: 14px; margin-top: 8px; }
+  .boardwrap { display: flex; gap: 16px; align-items: flex-start; margin-top: 12px; flex-wrap: wrap; }
+  .board { display: grid; gap: 1px; padding: 3px; border-radius: 8px; background: var(--field); width: max-content; max-width: 100%; }
+  .cell { border-radius: 2px; background: var(--cell-empty); position: relative; background-size: cover; image-rendering: auto; }
+  .cell.cover::after { content: ""; position: absolute; inset: 0; border-radius: 2px; background: rgba(0,122,255,.45); box-shadow: inset 0 0 0 1.5px #007aff; }
+  .cell.click { z-index: 2; }
+  .cell.click::before { content: ""; position: absolute; inset: -3px; border: 3px solid var(--warn); border-radius: 5px; z-index: 2;
+    box-shadow: 0 0 0 1.5px var(--card), 0 0 0 0 color-mix(in srgb, var(--warn) 55%, transparent); animation: ring 1s ease-out infinite; }
+  @keyframes ring { to { box-shadow: 0 0 0 1.5px var(--card), 0 0 0 9px color-mix(in srgb, var(--warn) 0%, transparent); } }
+  .cell.click::after { box-shadow: none; }
+  .cell.cover::after { z-index: 1; }
+  .axis { font-size: 10px; color: var(--faint); text-align: center; font-variant-numeric: tabular-nums; }
+  .piece { display: grid; gap: 1px; width: max-content; }
+  .piece i { width: var(--px, 12px); height: var(--px, 12px); border-radius: 2px; background: transparent; }
+  .piece i.on { background: #c41a1e; }
+  .side { display: flex; flex-direction: column; gap: 6px; }
+  .legend { font-size: 12px; color: var(--faint); margin-top: 6px; }
+  .nav { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+  .list { margin-top: 14px; border-top: .5px solid var(--line); padding-top: 8px; max-height: 260px; overflow: auto; }
+  .mv { display: flex; align-items: center; gap: 10px; padding: 5px 8px; border-radius: 8px; cursor: pointer; font-size: 14px; }
+  .mv:hover { background: var(--field); }
+  .mv.on { background: color-mix(in srgb, var(--warn) 16%, transparent); }
+  .mv.done { color: var(--faint); }
+  .mv .n { flex: none; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 600;
+           color: var(--faint); box-shadow: inset 0 0 0 1px var(--line); }
+  .mv.on .n { background: var(--warn); color: #fff; box-shadow: none; }
+  .mv .pc { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--mute); }
+  textarea, input[type=text] { width: 100%; font: inherit; color: inherit; background: var(--field); border: 0; border-radius: 10px; padding: 9px 11px; }
+  textarea { font: 12px/1.4 ui-monospace, Menlo, monospace; min-height: 72px; resize: vertical; }
+  label { display: block; font-size: 13px; color: var(--mute); margin: 10px 0 5px; }
+  .prog { margin-top: 10px; font: 11px/1.4 ui-monospace, Menlo, monospace; color: var(--faint); word-break: break-word; }
+  .bar { height: 4px; border-radius: 2px; background: var(--field); overflow: hidden; margin-top: 12px; }
+  .bar i { display: block; height: 100%; width: 30%; background: var(--accent); border-radius: 2px; animation: slide 1.4s ease-in-out infinite; }
+  @keyframes slide { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
+  a.bm { display: inline-block; margin: 6px 0 2px; padding: 7px 14px; border-radius: 10px; font-weight: 600;
+          text-decoration: none; color: #fff; background: var(--warn); cursor: grab; }
+  .bmline { margin-top: 12px; font-size: 13px; color: var(--mute); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .bmline.ok { color: var(--ok); }
+
+  .lead { margin: 0 0 10px; }
+  .tip { margin-top: 16px; padding: 10px 12px; border-radius: 10px; background: var(--field); font-size: 13px; color: var(--mute); }
+  .tip summary { cursor: pointer; color: var(--ink); font-weight: 600; }
+  .tip p { margin: 8px 0 0; }
+  .tip b { color: var(--ink); font-weight: 600; }
+  .bmbox { margin-bottom: 14px; padding: 14px 16px; border-radius: 12px;
+    background: color-mix(in srgb, var(--warn) 9%, var(--card)); box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--warn) 45%, transparent); }
+  .bmt { font-weight: 700; font-size: 16px; margin-bottom: 8px; }
+  ol.bmsteps { margin: 0; padding: 0; list-style: none; counter-reset: b; }
+  ol.bmsteps li { counter-increment: b; display: flex; align-items: center; gap: 10px 12px; flex-wrap: wrap; padding: 8px 0 8px 32px; position: relative;
+    border-top: .5px solid var(--line); }
+  ol.bmsteps li:first-child { border-top: 0; }
+  ol.bmsteps li > div { flex: 1 1 220px; }
+  ol.bmsteps li::before { content: counter(b); position: absolute; left: 0; top: 9px; width: 22px; height: 22px; border-radius: 50%;
+    display: grid; place-items: center; font-size: 12px; font-weight: 700; color: #fff; background: var(--warn); }
+  ol.bmsteps a.bm { margin: 0; font-size: 15px; padding: 9px 16px; box-shadow: 0 2px 8px color-mix(in srgb, var(--warn) 40%, transparent); }
+  .bmbox .tiny { margin: 8px 0 0; }
+  #bmLive { color: var(--ok); } #bmLive b { color: var(--ok); }
+  .orhere { font-size: 13px; color: var(--mute); margin: 4px 0 8px; }
+  button.small { padding: 3px 10px; font-size: 13px; border-radius: 8px; vertical-align: 1px; }
+  /* unlock */
+  #unlockCard { flex: none; }
+  #unlockCard summary { display: flex; align-items: center; gap: 9px; cursor: pointer; list-style: none; padding: 7px 12px 7px 8px;
+    background: var(--card); border: .5px solid var(--line); border-radius: 12px; }
+  #unlockCard summary:hover { background: var(--field); }
+  #unlockCard summary::-webkit-details-marker { display: none; }
+  #unlockCard summary::after { content: ""; margin-left: 4px; width: 6px; height: 6px; border-right: 2px solid var(--faint); border-bottom: 2px solid var(--faint); transform: rotate(45deg) translate(-2px, -2px); transition: transform .2s; }
+  #unlockCard[open] summary::after { transform: rotate(-135deg) translate(-2px, -2px); }
+  #unlockCard .lt { display: grid; line-height: 1.2; }
+  #unlockCard .lk { font-size: 11px; color: var(--mute); }
+  #unlockSum { font-weight: 600; font-size: 14px; white-space: nowrap; }
+  #unlockBody { position: absolute; right: 0; top: calc(100% + 8px); z-index: 10; width: min(360px, 100%);
+    background: var(--card); border: .5px solid var(--line); border-radius: 14px; padding: 4px 16px 16px;
+    box-shadow: 0 12px 32px rgba(0,0,0,.16), 0 1px 3px rgba(0,0,0,.08); }
+  @media (max-width: 560px) { header { flex-direction: column; gap: 0; } #unlockCard { margin-bottom: 16px; } }
+  #unlockCard .lock { width: 22px; height: 22px; border-radius: 6px; flex: none; background: var(--warn) center/14px no-repeat;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='white' stroke-width='1.8'%3E%3Crect x='3' y='7' width='10' height='7' rx='1.5' fill='white'/%3E%3Cpath d='M5 7V5a3 3 0 0 1 6 0v2'/%3E%3C/svg%3E"); }
+  #unlockCard.done .lock { background-color: var(--ok);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='white' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.5 8.5l3 3 6-7'/%3E%3C/svg%3E"); }
+  #unlockCard .msg { margin-top: 10px; }
+  .unlockform label { display: block; font-size: 13px; color: var(--mute); margin: 12px 0 4px; }
+  .unlockform input[type=email] { width: 100%; font: inherit; color: inherit; background: var(--field); border: 0; border-radius: 10px; padding: 9px 11px; }
+  footer { color: var(--faint); font-size: 12px; margin-top: 16px; text-align: center; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="htxt">
+      <h1>Neopets ShapeShifter Solver</h1>
+      <p>Runs entirely in this page. Nothing is uploaded.</p>
+    </div>
+    <details id="unlockCard">
+      <summary><span class="lock" aria-hidden="true"></span><span class="lt"><span class="lk">License type</span><span id="unlockSum">Free version</span></span></summary>
+      <div id="unlockBody"></div>
+    </details>
+  </header>
+
+  <section class="card step on" id="step1">
+    <div class="sh"><span class="sn">1</span><h2>Copy the board, paste it here</h2></div>
+    <ol class="steps">
+      <li>Open the game page: <button class="ghost small" id="openGame">Open the game ↗</button></li>
+      <li>On the game page press <kbd class="k-a">Ctrl+A</kbd> then <kbd class="k-c">Ctrl+C</kbd>.</li>
+      <li>Come back to this page and press <kbd class="k-v">Ctrl+V</kbd>.</li>
+    </ol>
+    <div class="drop" id="drop">Paste here: <kbd class="k-v">Ctrl+V</kbd></div>
+    <div class="status" id="pasteStatus"></div>
+  </section>
+  <div class="arrow" aria-hidden="true"><svg viewBox="0 0 18 22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2v17M3 13l6 6 6-6"/></svg></div>
+  <section class="card step todo" id="step2">
+    <div class="sh"><span class="sn">2</span><h2>Solve</h2></div>
+    <div id="solve"></div>
+  </section>
+  <div class="arrow" aria-hidden="true"><svg viewBox="0 0 18 22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2v17M3 13l6 6 6-6"/></svg></div>
+  <section class="card step todo" id="step3">
+    <div class="sh"><span class="sn">3</span><h2>Place the pieces</h2></div>
+    <div class="bmbox" id="bmCard">
+      <div id="bmSetup">
+        <div class="bmt">Let the game show you where each piece goes</div>
+        <ol class="bmsteps">
+          <li><div>Drag this orange button up to your bookmarks bar.<div class="tiny">Only once. No bar? Press <kbd class="k-bar">Ctrl+Shift+B</kbd>.</div></div>
+            <a class="bm" id="bm" href="#" draggable="true">Level –</a></li>
+          <li><div>Open the game.</div><button class="small" id="openGame2">Open the game ↗</button></li>
+          <li><div>In the game tab, click that bookmark once.</div></li>
+        </ol>
+        <p class="tiny">The square to click then lights up on the game page after every piece, and on every new level. Keep this page open.</p>
+        <div class="status" id="bmStatus"></div>
+      </div>
+      <div id="bmLive" class="hidden"><b>✓ The game tab is showing you each piece.</b> Place them there. <button class="link" id="bmShowSetup">Set-up steps</button></div>
+    </div>
+    <div class="orhere">Or follow the answer here:</div>
+    <div id="answer"></div>
+  </section>
+</main>
+
+<script type="text/plain" id="solver-src">async function createSolver(moduleArg={}){var Module=moduleArg;var programArgs=[];var quit_=(status,toThrow)=>{throw toThrow};var _scriptName;if(true)_scriptName=self.location.href;if(false,true){try{new URL(".",_scriptName).href}catch{}if(true)0;0}var out=console.log.bind(console);var err=console.error.bind(console);var ABORT=false;var EXITSTATUS;function binaryDecode(bin){for(var c,i=0,l=bin.length,o=new Uint8Array(l);i<l;++i){c=bin.charCodeAt(i);o[i]=~c>>8&c}return o}function getMemoryBuffer(){return wasmMemory.buffer}function updateMemoryViews(){if(HEAP8?.buffer?.resizable)return;var b=getMemoryBuffer();HEAP8=new Int8Array(b);HEAPU8=new Uint8Array(b);HEAPU32=new Uint32Array(b)}function preRun(){var preRun=Module["preRun"];if(preRun){if(typeof preRun==="function")preRun=[preRun];onPreRuns.push(...preRun)}callRuntimeCallbacks(onPreRuns)}function initRuntime(){0;wasmExports["i"]()}function exitRuntime(){___funcs_on_exit();flush_NO_FILESYSTEM();0}function postRun(){}function abort(what){Module["onAbort"]?.(what);what=`Aborted(${what})`;err(what);ABORT=true;what+=". Build with -sASSERTIONS for more info.";throw new WebAssembly.RuntimeError(what)}var wasmBinaryFile;function findWasmBinary(){return binaryDecode(' asm   ```` ` `~~`  ` `|``~` |`~` ~`}` `|``||`||+aa 	ab  ac \nad ae af ag /.    \r        p	A  h i 4j 3k +l m ,	 A10/2.-\nôÏ.   -  A qE@    &r# Ak"$ @  L\r  AÀq\r   k"A AI""@   ü  E@@   A Ak"AÿK\r      Aj$ @  E\r   Ak"  Ak( "Axq" j!@ Aq\r  AqE\r  ( "k"A  ( I\r   j! @@@A¤ (  G@ (! AÿM@  ("G\rA A ( A~ Avwq6  (!  G@ (" 6  6 (" Aj ("E\r Aj!@ ! "Aj! ("\r  Aj! ("\r  A 6  ("AqAG\rA   6   A~q6   Ar6   6   6  6A ! E\r @ ("At"(À  F@ AÀ j 6  \rA A ( A~ wq6 @  (F@  6  6 E\r  6 ("@  6  6 ("E\r   6  6  O\r  ("AqE\r @@@@ AqE@A¨ (  F@A¨  6 A A (   j" 6    Ar6 A¤ ( G\rA A 6 A¤ A 6 A¤ ( " F@A¤  6 A A (   j" 6    Ar6   j  6  Axq  j!  (! AÿM@ (" F@A A ( A~ Avwq6   6  6 (!  G@ (" 6  6 (" Aj ("E\r Aj!@ ! "Aj! ("\r  Aj! ("\r  A 6   A~q6   Ar6   j  6 A ! E\r @ ("At"(À  F@ AÀ j 6  \rA A ( A~ wq6 @  (F@  6  6 E\r  6 ("@  6  6 ("E\r   6  6   Ar6   j  6   G\r A   6   AÿM@  AøqA¸ j!A ( "A  Avt" qE@A    r6   (!   6   6  6   6A!  AÿÿÿM@  A&  Avg"kvAq AtrA>s!  6 B 7 AtAÀ j!@A ( "A t"qE@A   r6   6 A!A  A AvkA  AGt! ( !@ "(Axq  F\r Av! At!  Aqj"("\r   6A! !A!  " (" 6  6A! A!A !  j 6   6   j 6 A° A° ( Ak" A  6 \'# Ak"$    6 AÐÄ ( A A Í(# Ak"\n$ @@@@@@@@@@@@  AôM@A ( "A  AjAøq  AI"Av" v"Aq@@ AsAq  j"At"A¸ j"  (À "("F@A  A~ wq6    6   6 Aj!   Ar6  j" (Ar6\r A ( "M\r @@A  t"A  kr   tqh"At"A¸ j" (À " ("F@A  A~ wq"6   6  6   Ar6   j"  k"Ar6   j 6  @ AxqA¸ j!A¤ ( ! A Avt"qE@A   r6   (!  6  6  6  6  Aj! A¤  6 A  6 \rA ( "E\r hAt(À "(Axq k! !@@ (" E@ (" E\r  (Axq k"   I"!    !  ! (!	  (" G@ ("  6   6 (" Aj ("E\r Aj!@ ! " Aj!  ("\r   Aj!  ("\r  A 6 A!  A¿K\r   Aj"Axq!A ( "E\r A!A  k!  AôÿÿM@ A& Avg" kvAq  AtkA>j!@@@ At(À "E@A ! A !  A AvkA  AGt!@@ (Axq k" O\r  ! "\r A ! !    ("   AvAqj("F   !  At! \r    rE@A !A t" A   kr q" E\r  hAt(À !   E\r@  (Axq k" I!   !    !  ("   (" \r  E\r  A (  kO\r  (!  (" G@ ("  6   6\n (" Aj ("E\r Aj!@ ! " Aj!  ("\r   Aj!  ("\r  A 6 	 A ( "M@A¤ ( ! @  k"AO@   j" Ar6   j 6    Ar6   Ar6   j" (Ar6A !A !A  6 A¤  6   Aj!  A ( "I@A   k"6 A¨ A¨ ( "  j"6   Ar6   Ar6  Aj! A !  A/j"Aè ( @Að ( Aô B7 Aì B 7 Aè  \nAjApqAØªÕªs6 Aü A 6 AÌ A 6 A "j"A  k"q" M\r\nAÈ ( "@AÀ ( " j"	 M\r  	I\rAÌ -  Aq\r@@A¨ ( "@AÐ ! @  ( " M@    (jI\r  (" \r A "AF\r !Aì ( " Ak" q@  k  jA   kqj!  M\rAÈ ( " @AÀ ( " j" M\r   I\r "  G\r  k q""  (   (jF\r ! @  AF\r   A0jO\r Að ( "  kjA  kq"AF\r  j!  !  "AG\rA ! A !  AG\rAÌ AÌ ( Ar6  !A !  AF\r  AF\r   M\r   k" A(jM\rAÀ AÀ (  j" 6 AÄ (   I@AÄ   6 @@@A¨ ( "@AÐ ! @   ( "  ("jF\r  (" \r A  ( " A    ME@A   6 A ! AÔ  6 AÐ  6 A° A6 A´ Aè ( 6 AÜ A 6 @  At" A¸ j"6À   6Ä   Aj" A G\r A  A(k" A  kAq"k"6 A¨   j"6   Ar6   jA(6A¬ Aø ( 6   M\r   K\r   (Aq\r     j6A¨  A  kAq" j"6 A A (  j"  k" 6    Ar6  jA(6A¬ Aø ( 6 A  (  K@A   6   j!AÐ ! @@   ( "G@  (" \r  - AqE\rAÐ ! @@  ( " M@    (j"I\r  (! A  A(k" A  kAq"k"6 A¨   j"6   Ar6   jA(6A¬ Aø ( 6   A\' kAqjA/k"    AjI"A6 AØ ) 7 AÐ ) 7AÔ  6 AØ  Aj6 AÐ  6 AÜ A 6  Aj! @  A6  Aj  Aj!  I\r   F\r   (A~q6   k"Ar6  6  AÿM@ AøqA¸ j! A ( "A Avt"qE@A   r6     (!   6  6A!AA!  AÿÿÿM@ A& Avg" kvAq  AtrA>s!    6 B 7  AtAÀ j!@@A ( "A  t"qE@A   r6   6  A  AvkA   AGt!  ( !@ "(Axq F\r  Av!  At!   Aqj"("\r   6  6A! "! A ("  6  6   6A ! A!A j 6   j  6 A ( "  M\r A    k"6 A¨ A¨ ( "  j"6   Ar6   Ar6  Aj! AÀ A06 A !    6     ( j6 A  kAqj" Ar6 A  kAqj"  j"k!@A¨ (  F@A¨  6 A A (  j" 6    Ar6A¤ (  F@A¤  6 A A (  j" 6    Ar6   j  6  (" AqAF@  Axq!	 (!@  AÿM@ (" F@A A ( A~  Avwq6   6  6 (!@  G@ ("  6   6@ ("  Aj (" E\r Aj!@ !  "Aj!  (" \r  Aj! (" \r  A 6 A ! E\r @ (" At"(À  F@ AÀ j 6  \rA A ( A~  wq6 @  (F@  6  6 E\r  6 (" @   6   6 (" E\r    6   6  	j!  	j"(!    A~q6  Ar6  j 6  AÿM@ AøqA¸ j! A ( "A Avt"qE@A   r6     (!   6  6   6  6A! AÿÿÿM@ A& Avg" kvAq  AtrA>s!  6 B 7 AtAÀ j! @@A ( "A t"qE@A   r6    6  A AvkA  AGt!  ( !@ " (Axq F\r Av! At!   Aqj"("\r   6   6  6  6  (" 6   6 A 6   6  6 Aj! @ E\r @ ("At"(À  F@ AÀ j  6   \rA  A~ wq"6 @  (F@   6   6  E\r   6 ("@   6   6 ("E\r    6   6@ AM@   j" Ar6   j"   (Ar6  Ar6  j" Ar6  j 6  AÿM@ AøqA¸ j! A ( "A Avt"qE@A   r6     (!   6  6   6  6A!  AÿÿÿM@ A& Avg" kvAq  AtrA>s!    6 B 7  AtAÀ j!@@ A  t"qE@A   r6   6   6 A  AvkA   AGt!  ( !@ "(Axq F\r  Av!  At!   Aqj"("\r   6  6  6  6 ("  6  6 A 6  6   6 Aj! @ 	E\r @ ("At"(À  F@ AÀ j  6   \rA  A~ wq6 @  	(F@ 	  6 	  6  E\r   	6 ("@   6   6 ("E\r    6   6@ AM@   j" Ar6   j"   (Ar6  Ar6  j" Ar6  j 6  @ AxqA¸ j! A¤ ( !A Avt" qE@A   r6     (!   6  6   6  6A¤  6 A  6  Aj!  \nAj$   @  "Aq@@ -  "E\r A=F\r Aj"Aq\r @@A ( "k rAxqAxG\r @A A½úôés"k rAxqAxG\r (! Aj"! A krAxqAxF\r  !@ "-  "E\r Aj! A=G\r    F@A @     k"j-  \r A´ ( "E\r  ( "E\r @@  !A  "E\r   -  "@@  -  G\r Ak"E\r Aj! - ! Aj! \r A ! A  -  kE@ (  j"-  A=F\r (! Aj! \r Aj! _~@A   E\r   ­ ­~"§"   rAI\r A  B §"" E\r   Ak-  AqE\r  @  A  ü   M -  !@  -  "E\r   G\r @ - !  - "E\r Aj!  Aj!   F\r   k@  "Aj!  ,  "A F A	kAIr\r A!@@@ AÿqA+k A !  ,  !  !A !  A0k"A	M@@  A\nl k!  ,  Aj!A0k"A\nI\r A   k   %# Ak"$   6    A Aj$ W~@AË ( "­  ­B|Bøÿÿÿ|"BÿÿÿÿX@ §" ? AtM\r  \rAÀ A06 AAË   6  ~  BZ@@ Ak"  "  B\n" B\n~}§A0r:   BÿÿÿÿV\r   §!  B\nZ@@ Ak" " A\nn"A\nlkA0r:   Aã K\r  @ Ak" A0r:   Ê@  "Aq@@  -  E\r  Aj" Aq\r @  "Aj! A ( "k rAxqAxF\r @ " Aj!  -  \r    k"      AèÉ &"F\r    G@@A¸Ê ( A\nF\r AüÉ ( " AøÉ ( F\r AüÉ   Aj6   A\n:  # Ak" $   A\n: @@AøÉ ( " AèÉ \rAøÉ ( AüÉ ( "F\r A¸Ê ( A\nF\r AüÉ  Aj6  A\n:  AèÉ   AjAAÊ (  AG\r   -   Aj$  D     @@£üÈ  E@AøÊ ( " @  !AàÉ ( " @   r!A¼ ( " @@  (  (G@   r!  (8" \r  @  (  (F\r   A A   ($   (\r A  ("  ("G@    k¬A  ((   A 6  B 7  B 7A ö} Al"	A¸Ûj( "A L@C    @ 	A°Ûj"	("\nA J@ A Ó(  lAtj!\r 	(! \nAþÿÿÿq! \nAq!CÊòIñ!@  \n lAtj!C    !A !A !A !	@ \nAG@@ 	    Atj"( "j-  Ej   ("j-  Ej!	  \r Atj*  \r Atj* ! Aj! Aj" G\r  E\r 	    Atj( "j-  Ej!	  \r Atj* !  AtjCÊòIñ C   ?  	H"8     ^! Aj" G\r A !CÊòIñ!CÊòIñC     A H! Aq!	A ! AO@ Aüÿÿÿq!\nA ! @  Atj" 8  8  8  8        ^"  ^"  ^"  ^! Aj!  Aj"  \nG\r  	E\r@  Atj 8     ^! Aj! Aj" 	G\r  C¡ï]E@A !@C    !@  Atj" * "C¡ï]\r   "C   Â]\r C   B  C   B^C;ª¸?" ""    C#Ä®:C\\<CGXc=Cðýu>Cr1?C  ? ü AtAüj¾!   8   ! Aj" G\r  # AÐk"$   6Ì A j"A A(ü   (Ì6ÈA   AÈj AÐ j  #A N@    ( "A_q6 @@  (0E@  AÐ 60  A 6  B 7  (,!   6,  (\rA  \r    AÈj AÐ j A j #! @  A A   ($   A 60   6,  A 6  (!  B 7    (  A qr6  AÐj$ Y    (H"Ak r6H  ( "Aq@   A r6 A  B 7    (,"6   6     (0j6A %# Ak"$   6    A  Aj$ ½~	# Ak"$ AÐ¼( "At"	@ A  	ü A Ó( "\nA J@AÌ¼( !@  Atj" )    j1   ­7 A   j"  jAÀ J"!  j! Aj" \nG\r @ A L@Bø©ú·Þ!@ AF@A !Bø©ú·Þ! Aq Aþÿÿÿq!A !Bø©ú·Þ!A !@  Atj"\n) \n)  |"B B¹ËçÑí¬¿~"B Bë£Ä±·è~"B |"B B¹ËçÑí¬¿~"B Bë£Ä±·è~"B ! Aj! Aj" G\r E\r  Atj)  |"B B¹ËçÑí¬¿~"B Bë£Ä±·è~"B !A !Aä¼( !Aà¼( !AØ¼) !@@   "§Atj( "E\r B|!  Ak"\n lAtj  	\'\r  A L\r A !A!AÐé( "A L\r  Aq!	Aè¼(   \nlAtj!  AÈé( AtjAj! @ AI\r  Aüÿÿÿq!A !@   Atj  Atj/ 6    Ar"Atj  Atj/ 6    Ar"Atj  Atj/ 6    Ar"Atj  Atj/ 6  Aj! Aj" G\r  	\r A!A !@A!   Atj  Atj/ 6  Aj! Aj" 	G\r  Aj$  ì#}# Aà$k"$  A J@  (,!A Ó( "At!@   	Atj( "\rlAt"  (,j! @ A  ü @    \r  "C    _\r  \rAlA°Ûj"("A J@C  ? !A !@@  Atj* "C    [\r  ("\nA L\r   ! (  \nlAtj! \nAq!A !A ! \nAO@ \nAüÿÿÿq!A !\n@   Atj"( Atj"  * 8   (Atj"  * 8   (Atj"  * 8   (Atj"  * 8  Aj! \nAj"\n G\r  E\r@   Atj( Atj"\n  \n* 8  Aj! Aj" G\r  Aj" G\r  A L\r   j! \rA\ntAÆj!A !@C    !@  At"\nj"\r* "C    _\r   j-  E\r C  ?C  ?  C  ?^"!C    !C½75Cïÿ?    \nj* "C   Â]}C    C   B  C   B^C;ª¸?" ""    C#Ä®:C\\<CGXc=Cðýu>Cr1?C  ? ü AtAüj¾ " Cïÿ?^ C½75]! \r 8  Aj" G\r  	Aj"	 G\r @@@@@AË ( "Ak A Ó( "	A L\r Bü7° A L\r  Atj!\n  (,!A !@  At"j!A !@ At! At!\r A°j" Aj"Atj"  j"*"C  ?   \rj(  	lAtj* ""  * "8     8   G\r  \nBü7  !@  Ak"Atj"\r  Atj"*"C  ?   Atj(  	lAtj* ""  * "8 \r    8  AK !\r  AÆj!\r  j!A !   j-  "AkA "AkA At!@ \r  Atj( "A\ntj-  @   	lAtj" * C   ?CÌ¼+ At" A°jj"*"  jAj" j*  * "  Atj* "C    " CÌ¼+]CÌ¼+     Atj* C    " CÌ¼+]¼"AvAÿqAÿ k²Cr1? AÿÿÿqAür¾"C  ¿ C  ?"   "  C$I>CÍÌL>C«ªª>C  ?C   ?8  Aj" G\r  Aj" 	G\r A Ó( "	A L\r A 6¸ Bü7° A L\r  (,!\r  Alj!A !@ \r At"j!A !@ A°j Alj" * "C  ?   Atj(  	lAtj* ""  *"8     *"8     8 Aj" G\r  Bü7  A 6 !@  Alj"Ak"\n * "C  ?   Ak"Atj(  	lAtj* ""  *"8  \n *"   8 \n    8 AK !\r  AÆj!  j!A !A   j-  "AkA "Ak A LAt!AAA~ AI j"\nAk \nA LAt!@   Atj( "A\ntj-  @   	lAtj" * C   ?CÌ¼+ Al" A°jj"*"  jAj" j*  *"  j*  * "  Atj* "C    " CÌ¼+]CÌ¼+   \nAtj*      Atj* C    " CÌ¼+]¼"AvAÿqAÿ k²Cr1? AÿÿÿqAür¾"C  ¿ C  ?"   "  C$I>CÍÌL>C«ªª>C  ?C   ?8  Aj" G\r  	 Aj"G\r A Ó( "A L\r B 7¸ Bü7° A L\r  (,!A !	  Atj!@  	At"j!\nA !@ At! At! A°j"\r Aj"Atj"  \rj"* "C  ? \n  j(  lAtj* ""  *"8   *"   8     *"8     8  G\r  Bü7  B 7 !@  Ak"Atj"  Atj"* "C  ? \n  Atj(  lAtj* ""  *"8   *"   8     *"8     8 AK !\r  	AÆj!  j!A !A   	j-  "Ak"AvAq j"\nAk \nA LAt! A At!A Ak"AvAq j"Ak A LAt!A Ak"AvAq j"\rAk \rA LAt!@   Atj( "A\ntj-  @   lAtj" * C   ?CÌ¼+ At" A°jj"*"  jAj" j*  *"  j*  *"  j*  * "  j* C    " CÌ¼+]CÌ¼+   \rAtj*    Atj*    \nAtj*    Atj* C    " CÌ¼+]¼"AvAÿqAÿ k²Cr1? AÿÿÿqAür¾"C  ¿ C  ?"   "  C$I>CÍÌL>C«ªª>C  ?C   ?8  Aj" G\r   	Aj"	G\r A Ó( "A L\r  Aüÿÿÿq! Aq!\r Ak! Ak"A~q! Aq!   lAtj! AI!A !@@ A L"\r A !A !A ! E@@ A°j Atj"	A 6 	B 7 	C    C  ? 8  Aj! Aj" G\r  ! \rE\r@ A°j AtjC    C  ? 8  Aj! Aj" \rG\r  A L"E@  (, Atj!A !@  l! At!\n A°j"	 Aj" lAtj" At 	j"	* C  ?   \nj(  lAtj* ""  	 AtjAk* 8 @ AH\r A !\nA! @@  At"j 	 j"*    Ak* 8   Aj"j 	 j"*    Ak* 8  Aj! \nAj"\n G\r  E\r  At"j  	j"*    Ak* 8   G\r @ \r A !A !A ! E@@  Atj"	C    C  ? 8  	A 6 	B 7 Aj! Aj" G\r  ! \rE\r@  AtjC    C  ? 8  Aj! Aj" \rG\r  E@ At"  (,j! !@  "	Ak" lAtj"   	lAtj"* C  ?   Atj(  lAtj* ""   AtjAk* 8 @ AH\r A !\nA! @@  At"j  j"*    Ak* 8   Aj"j  j"*    Ak* 8  Aj! \nAj"\n G\r  E\r  At"j  j"*    Ak* 8  	AK\r  AÆj!  j!\n   j-  !A !@   Atj( "A\ntj-  A ! Aj!	C    !@ A L@C    ! A°j  lAtj!   	lAtj!C    !@  Atj* "   k"Au q j"Atj" A  A LAtjAk*  !  *  ! Aj" G\r  \n  lAtj" * C   ?CÌ¼+  CÌ¼+]CÌ¼+  CÌ¼+]¼"AvAÿqAÿ k²Cr1? AÿÿÿqAür¾"C  ¿ C  ?"   "  C$I>CÍÌL>C«ªª>C  ?C   ?8  	 Aj" G\r  Aj" G\r  Aà$j$ ¹	~# Ak"$ @Aê( \r AË (   F@AÐ¼( "At"E"	E@ A  ü A Ó( "\nA J@AÌ¼( !A ! @  Atj" )   1 ð¼ ­7 A   j"  jAÀ J"!  j!  Aj"  \nG\r @ A L@Bø©ú·Þ!@ AF@A ! Bø©ú·Þ! Aq Aþÿÿÿq!A ! Bø©ú·Þ!A !@   Atj"\n) \n)  |"B B¹ËçÑí¬¿~"B Bë£Ä±·è~"B |"B B¹ËçÑí¬¿~"B Bë£Ä±·è~"B !  Aj!  Aj" G\r E\r   Atj)  |"B B¹ËçÑí¬¿~"B Bë£Ä±·è~"B !Aä¼( !Aà¼( ! AØ¼) !@    "§Atj"( "@ B|!  Ak lAtj  \'\rAì¼( !  	E@    lAtj  ü\n  AÐé( "At"@Aè¼(    lAtjAðÄ ü\n  Aì¼  Aj" 6    6   Al"A°Ûj"(A  AÈÛj( E\r A   AÈé( "L\r   At AsAtjAðÄj/ "L\r   Aj!\n  AÈé( kAtAðÄj!AË ( ! (! (! @  ;     lAtj!	@  A L\r A !  AG@  Aq  Aþÿÿÿq! A !@ 	 Atj"( Að¼j" -  Aj"A   AÿqG:   (Að¼j" -  Aj"A   AÿqG:   Aj! Aj"  G\r E\r 	 Atj( Að¼j"   -  Aj" A    AÿqG:   \n@ (" A L\r A !  AG@  Aq  Aþÿÿÿq!A !@ 	 Atj"( Að¼j"\r \r-  "\r  \rAk:   (Að¼j" -  "  Ak:   Aj! Aj" G\r E\r 	 Atj( Að¼j" -  "  Ak:   Aj" (H\r  Aj$ @AÐé( E\r  AÈé( G\r    Al"A°Ûj!\n AÈÛj( @   Atj(ü!@@@ \n("	 J@ A´Ûj( !   AtjAj! AË ( AkF\r Aj"AtA j! A\ntA°´j! AtA°j! Aþÿÿÿq! Aq! Ak!@ \n(  lAtj!	A ! !@@ A L@  6 @   	 Atj( j-  E@ A L\r Ak! Aj" G\r   6 A !AË ( !A ! @@   	 Atj"( j"\r \r-  "\r  \rAk:     (j" -  "  Ak:   Aj! Aj" G\r  E\r   	 Atj( j" -  "  Ak:      (\n"Aj"6\n AþÿÿJ@AêAê(  j6   A 6\nA !@ ( "A J@@    Atj( j-    j-  K\r Aj" G\r Aê( \r     E\r A A L\r A !AË ( !A ! @@   	 Atj"( j" -  Aj"A   AÿqG:     (j" -  Aj"A   AÿqG:   Aj! Aj" G\r  E\r   	 Atj( j" -  Aj"A   AÿqG:   Aj" \n(H\r  A L\r \n(!@   lAtj!\nA ! !@@   \n Atj( j-  E@ A L\r Ak! Aj" G\r Aj" 	H\r A   6 Aþ}|# A$k"$ @Aê( \r Aèé( \r  AF@    (0"Aj60   (0H\r  (¤0AtAÊj" ( "Aj6    60A !@@@@AË ( "\nA L\r   Aj!AÈé( !@ \nAG@ \nAq \nAþÿÿÿq!	@@  Atj( A N\r  A j Atj 6  Aj!  N\r  A"j Atj 6  Aj!@  Ar"Atj( A N\r  A j Atj 6  Aj!  L\r  A"j Atj 6  Aj! Aj! Aj" 	G\r E\r  Atj( A N\r  A j Atj 6  Aj!  N\r  A"j Atj 6  Aj! E\r A !A Ó( "	A L\r  A\nj!  *!\r@  Atj(    j-  H\r Aj" 	G\r     ( 0Aj6 0  (, \n Aj"l 	lAtj! 	 \nlAt"@   k ü\n  AA< !A !@    A j   Aj" G\r A !  (,AðÅ( "Atj!@@ A J@A!C  ¿!@    A"j Atj( "	   	 lAtj"C    _\rC  ? "   ^"! 	  ! Aj" G\r  AN\r   60  A.j!  A,j!@  At" A"jj( "Atj( !\n AlA¸Ûj( !  j 6  A J@   lAtj!A !@A !@ E\r   Atj* ! !@  \n Atj"Ak( "	Atj*  ]E@ !  	6  AJ Ak!\r  \n Atj 6  Aj" G\r  Aj" G\r A! AJ\r   60  A  )!\r Al"A¸Ûj( "A L\r    lAtj!  Aj!A !	@ !@  \rAtj* "C    _\r @@ AtAÈj( "A H\r  Atj( "A H\r   \rJ\r !@@ AtAÆj( "A H\r  Atj( "A H\r   \rH\r@ 	"A L\r @   Atj"Ak( "Atj*  ]E\r  6  AJ Ak!\r A ! 	Aj!	  Atj \r6  \rAj"\r G\r  	A L\r  A°Ûj!  A\nj!A !\rA Ó( "Aüÿÿÿq! Aq! A\ntAÆj!  ( Atj!   AtjAj!AË ( ! AI!@  * »¢   Atj( "\nAtj* »£"  +0d\r !@ ("A L\r  ( \n lAtj! Aq!@@ Ak"E@A ! Aþÿÿÿq!A !A !@     Atj"( j-  Ek   (j-  Ek! Aj! Aj" G\r  E\r     Atj( j-  Ek!@ E@A ! Aþÿÿÿq!A !A !@    Atj"( j" -  "  Ak:     (j" -  "  Ak:   Aj! Aj" G\r  E\r    Atj( j" -  "  Ak:    \n6 @ A L"\r A !A !A !A ! E@@  Atj" (   j-  k6   Ar"Atj" (   j-  k6   Ar"Atj" (   j-  k6   Ar"Atj" (   j-  k6  Aj! Aj" G\r  ! E\r@  Atj" (   j-  k6  Aj! Aj" G\r      @ \r A !A !A !A ! E@@  Atj" (   j-  j6   Ar"Atj" (   j-  j6   Ar"Atj" (   j-  j6   Ar"Atj" (   j-  j6  Aj! Aj" G\r  ! E\r@  Atj" (   j-  j6  Aj! Aj" G\r @ ("A L\r  (  \nlAtj!\nA ! AG@ Aq Aþÿÿÿq!A !@   \n Atj"( j" -  Aj"A   AÿqG:     (j" -  Aj"A   AÿqG:   Aj! Aj" G\r E\r   \n Atj( j" -  Aj"A   AÿqG:   A6 E@ Aj" 	F\rA!\rA !\r A$j$  \rA!AðÅA6 AË ( "	A J@@  Al" (¸Û"H@AðÅ 6  !  A°Ûj!@ A L\r  ("A L\r  A\ntAÆj! Aüÿÿÿq!\r Aq!\n (!A ! AI!@   lAtj!A !A ! A !@ E@@    Atj"( jA:    (jA:    (jA:    (jA:    Aj!  Aj" \rG\r   ! \nE\rA ! @   Atj( jA:   Aj!  Aj"  \nG\r  Aj" G\r A! At"A6Æ A6È@ E\r  AÈj! ! @ A N\r  Ak"Al(°Û ( E@  6  !  AJ ! \r @ Aj" 	N\r  AÆj!A! ! @ A N\r  Al(°Û ( E@   6   !  Aj"  	G\r   	G\r    E@A @   Aÿ M\r@AüÊ ( ( E@ AqA¿F\r AÿM@   A?qAr:    AvAÀr:  A A@qAÀG A°OqE@   A?qAr:    AvAàr:     AvA?qAr: A AkAÿÿ?M@   A?qAr:    AvAðr:     AvA?qAr:    AvA?qAr: AAÀ A6 AA   :  A´ @@@@@@@@@@@ A	k 	\n	\n	\n\n	  ( "Aj6    ( 6   ( "Aj6    2 7   ( "Aj6    3 7   ( "Aj6    0  7   ( "Aj6    1  7   ( AjAxq"Aj6    + 9    ( "Aj6    4 7   ( "Aj6    5 7   ( AjAxq"Aj6    ) 7 o  ( ",  A0k"A	K@A @A! AÌ³æ M@A  A\nl"j  AÿÿÿÿsK!   Aj"6  ,  ! !A0k"A\nI\r  ¤~# A@j"$   6< A)j! A\'j! A(j!@@@@@A !@  AÿÿÿÿsJ\r  j! (<"!@@@@ -  "@@@@ Aÿq"E@ !	 A%G\r !@ - A%G@ !	 Aj! -  Aj"	!A%F\r   	6<  k" Aÿÿÿÿs"J\r	  @     \r 	Aj!A!@ 	, A0k"A	K\r  	- A$G\r  	Aj!A! !  6<A !\r@ ,  "A k"	AK@ ! !A 	t"	AÑqE\r @  Aj"6< 	 \rr!\r , "A k"	A O\r !A 	t"	AÑq\r @ A*F@@ , A0k"A	K\r  - A$G\r   E@  AtjA\n6 A   Atj( ! Aj!A \r Aj!  E@  6<A !A !  ( "Aj6  ( !A !  6< A N\rA  k! \rAÀ r!\r A<j""A H\r\n (<!A !A!\nA  -  A.G\r  - A*F@@ , A0k"A	K\r  - A$G\r  Aj!  E@  AtjA\n6 A   Atj(  \r Aj!A   E\r   ( "Aj6  ( !\n  6< \nA N  Aj6< A<j"!\n (<!A!@ !A!	 ",  "Aû kAFI\r Aj! A:l jAÄ j-  "AkAÿqAI\r   6<@ AG@ E\r A N@  E@  Atj 6    Atj) 70  E\r A0j  ! A N\rA !  E\r  -  A q\r \rAÿÿ{q" \r \rAÀ q!A !\rA! !	@@@@@@@@@@@@@@@ -  "À"ASq  AqAF  "AØ k!	\n @ AÁ k  AÓ F\r )0!AA !@@@@@@@   (0 6  (0 6  (0 ¬7  (0 ;  (0 :   (0 6  (0 ¬7 A \n \nAM!\n Ar!Aø ! ! )0""B R@ A q!@ Ak" §Aq- °H r:   B"B R\r  ! P\r AqE\r AvAj!A!\r ! )0""B R@@ Ak" §AqA0r:   B"B R\r  ! AqE\r \n  k"  \nH!\n )0"B S@ B  }"70A!\rA Aq@A!\rAAA Aq"\r!  !  \nA Hq\r Aÿÿ{q  !@ B R\r  \n\r  !A !\n \n P  kj"  \nH!\n\r - 0!Aÿÿÿÿ \n \nAÿÿÿÿO""A G!	@@@ (0"Að ""AqE\r  E\r @ -  E\r Ak"A G!	 Aj"AqE\r \r  	E\r@ -  E\r  AI\r @A ( "	k 	rAxqAxG\r Aj! Ak"AK\r  E\r@  -  E\r Aj! Ak"\r A " k  " j!	 \nA N@ ! !\n ! !\n 	-  \r )0"B R\rA !	 \n@ (0A !  A  A   A 6  >  Aj"60A!\n !A !@@ ( "E\r  Aj  "A H\r  \n kK\r  Aj!  j" \nI\rA=!	 A H\r  A     E@A !A !	 (0!@ ( "E\r Aj"\n  " 	j"	 K\r   \n  Aj!  	K\r   A    AÀ s    H!  \nA Hq\r	A=!	   +0  \n     "A N\r\n - ! Aj!    \r	 E\rA!@  Atj( " @  Atj   !A! Aj"A\nG\r A\nO@A!\n@  Atj( \rA! Aj"A\nG\r 	A!	  : \'A!\n ! ! \n 	 k" \n J"\n \rAÿÿÿÿsJ\rA=!	  \n \rj"  H" K\r  A        \r  A0   As  A0 \n A       A    AÀ sA !A=!	AÀ  	6 A! A@k$  @AÐé( E\r  AÈé( G\r    Al"A°Ûj!\n   Atj! AÈÛj( @ Aj( !@@ \n(" J@ A´Ûj( ! A\nj( ! Aj!   AtjAj! AË ( AkF\r Aj"\rAtA j! \rA\ntA°´j! \rAtA°j! Aþÿÿÿq! Aq! Ak!@ \n(  Atj( " lAtj!A ! !@ A L"E@@    Atj( j-  E@ A L\r Ak! Aj" G\r   6   6     ("Aj6A!   (N\r@ \r A !AË ( !	A ! @@    Atj"( j" -  " 	 Ak:     (j" -  " 	 Ak:   Aj! Aj" G\r  E\r    Atj( j" -  " 	 Ak:      (\n"Aj"6\n AþÿÿJ@AêAê(  j6   A 6\nA !@ ( "A J@@    Atj( j-    j-  K\r Aj" G\r Aê( \rAäé( \r   \r $"\r \r A !AË ( !A ! @@    Atj"( j"	 	-  Aj"	A   	AÿqG:     (j" -  Aj"A   AÿqG:   Aj! Aj" G\r  E\r    Atj( j" -  Aj"A   AÿqG:   Aj" \n(H\r A !@ A J@ \n(!\n@ \n  Atj( " lAtj!A ! !@@    Atj( j-  E@ A L\r Ak! Aj" G\rA ! Aj" H\r   Atj( !  6   6 A ~~  ½"B4§Aÿq"AÿG| E@   D        aA   D      ðC¢ %!  ( A@j6     Aþk6  BÿÿÿÿÿÿÿBð?¿  È@ ("  \r ( ("k I@     ($ @@ (PA H\r  E\r  !@   j"Ak-  A\nG@ Ak"\r     ($ " I\r  k! (!  !A ! @   ü\n    ( j6  j! @@ AO@   rAq\r@  (  ( G\r Aj!  Aj!  Ak"AK\r  E\r@  -  " -  "F@ Aj!  Aj!  Ak"\r  kA ³|~|@  ½B4§Aÿq"AÉkA?I@ ! AÉI@  D      ð?  AI\r D          ½"BxQ\r AÿO@  D      ð?  B S@# Ak"D       9 +D       ¢# Ak"D       p9 +D       p¢  A+ ¢A + " " ¡"A°+ ¢ A¨+ ¢    " ¢"   ¢ AÐ+ ¢AÈ+  ¢   AÀ+ ¢A¸+  ¢ ½"§AtAðq"+    ! ) B-|! E@| BP@ B?}¿"  ¢   D       ¢ Bð?|¿" ¢"  "D      ð?c|# Ak" B7 +D       ¢9D         D      ð? "    ¡  D      ð?  ¡   D      ð¿ "   D        a D       ¢ ¿"  ¢   §  (0 F@  *    ( 0Aj"\n6 0@ \nAÿqE@Aê( \rAèé( \r   AtjA.j( "\nAl"A¸Ûj( "A J@  Aj" \nAt"j! Aj!   jA,j!AË ( !	 A°Ûj"\r(! \r(!@   (  Atj( "lAtj!A ! !@ A L"E@@    Atj( j-  E@ A L\r Ak! Aj" G\r  \n!@@ AtAÈj( "A H\r  Atj( "A H\r   J\r \n!@@ AtAÆj( "A H\r  Atj( "A H\r   H\r@ \r A ! AG@ Aq Aþÿÿÿq!A !@    Atj"( j" -  " 	 Ak:     (j" -  " 	 Ak:   Aj! Aj" G\r E\r    Atj( j" -  " 	 Ak:    6     ) \r(!@ \r("A L\r    lAtj!A ! AG@ Aq Aþÿÿÿq!A !@    Atj"( j" -  Aj"A  	 AÿqG:     (j" -  Aj"A  	 AÿqG:   Aj! Aj" G\r E\r    Atj( j" -  Aj"A  	 AÿqG:   A6 @A \r(! Aj" H\r A ¢	# A\nk"$ @@@@AÐé( E@A Ó( "A L\rA Ó( "@ Aj   ü\n   AjE\rAË ( "AÈé( "L\r  kAt"E\r   At"jA*j  jAj ü\n  @   j-  \r  Aj"G\r A !A!AÈé( "A L\r  Aq!  A*j!  Aj!  AO@ Aüÿÿÿq!	@  At"j   j( 6   Ar"j   j( 6   Ar"j   j( 6   Ar"j   j( 6  Aj! Aj" 	G\r  E\rA !@  At"j   j( 6 A! Aj! Aj" G\r  A\nj$  ¨A ( "@A ( ! @A   Ak"6   A J@A ( "  Atj( !   Atj(   A A ( " Ak"6   A J\r A (  ( !A ! A A 6 A  6  \r A A:   #   kApq" $   Í|~# A°k"$  A 6¬@ ½"B S@ "½!A!A! Aq@A!A!AA Aq"! E!@ Bøÿ Bøÿ Q@  A   Aj" Aÿÿ{q      A¿	A A q"AÃ	A¯   bA  A    AÀ s    J!\n Aj!@@@  A¬j%"  "D        b@  (¬"Ak6¬ A r"Aá G\r A r"Aá F\r (¬!\n  Ak"\n6¬ D      °A¢!A  A H! AèA  \nA Nj"\r!@  ü"6  Aj!  ¸¡D    eÍÍA¢"D        b\r @ \nA L@ \n!	 \r! ! \r! \n!	@A 	 	AO!@ Ak" I\r  ­!B !@  5   |" BëÜ"BëÜ~}>  Ak" O\r  BëÜT\r  Ak" > @  "I@ Ak"( E\r  (¬ k"	6¬ ! 	A J\r  	A H@ AjA	nAj! Aæ F!@A	A  	k" A	O!@  M@A A ( !AëÜ v!A tAs!A !	 !@  	 ( " vj6   q l!	 Aj" I\r A A ( ! 	E\r   	6  Aj!  (¬ j"	6¬ \r  j" " Atj   kAu J! 	A H\r A !	@  M\r  \r kAuA	l!	A\n! ( "A\nI\r @ 	Aj!	  A\nl"O\r   	A  Aæ Gk Aç F A Gqk"  \rkAuA	lA	kH@ A`Aìc \nA Hj AÈ j"A	m"Atj!\nA\n!  A	lk"AL@@ A\nl! Aj"AG\r @ \n( "  n" lk"E \nAj" Fq\r @ AqE@D      @C! AëÜG\r  \nO\r \nAk-  AqE\rD     @C!D      à?D      ð?D      ø?  FD      ø?  Av"F  K!@ \r  -  A-G\r  ! ! \n  k"6     a\r  \n  j"6  AëÜO@@ \nA 6   \nAk"\nK@ Ak"A 6  \n \n( Aj"6  AÿëÜK\r  \r kAuA	l!	A\n! ( "A\nI\r @ 	Aj!	  A\nl"O\r  \nAj"   I!@ " M"E@ Ak"( E\r@ Aç G@ Aq! 	AsA A " 	J 	A{Jq" j!AA~  j! Aq"\r Aw!@ \r  Ak( "\nE\r A\n!A ! \nA\np\r @ "Aj! \n A\nl"pE\r  As!  \rkAuA	l! A_qAÆ F@A !   jA	k"A  A J"  J!A !   	j jA	k"A  A J"  J!A!\n AýÿÿÿAþÿÿÿ  r"J\r  A GjAj!@ A_q"AÆ F@ 	 AÿÿÿÿsJ\r 	A  	A J!  	 	Au"s k­ "kAL@@ Ak"A0:    kAH\r  Ak" :   AkA-A+ 	A H:    k" AÿÿÿÿsJ\r  j" AÿÿÿÿsJ\r  A    j"\n       A0  \n As@@@ AÆ F@ AjA	r! \r   \rK"!@ 5  !@  G@  AjM\r@ Ak"A0:    AjK\r   G\r  Ak"A0:       k Aj" \rM\r  @  AîA  O\r A L\r@ 5  " AjK@@ Ak"A0:    AjK\r    A	  A	N A	k! Aj" O\r A	J !\r @ A H\r   Aj  I! AjA	r!\r !@ \r 5  \r"F@ Ak"A0:  @  G@  AjM\r@ Ak"A0:    AjK\r    A Aj!  rE\r   AîA    \r k"   H  k! Aj" O\r A N\r   A0 AjAA      k !  A0 A	jA	A   A   \n AÀ s  \n  \nJ!\n  AtAuA	qj!	@ AK\r D      ð?!@A4 Atk"AN@D      à! AÿI@ Aÿk!D      ð!Aý  AýOAþk! AxJ\r D      `! A¸pK@ AÉj!D        !Aðh  AðhMAj!  Aÿj­B4¿¢! 	-  A-F@   ¡ !    ¡!  (¬" Au"s k­ "F@ Ak"A0:   (¬! A q!\r Ak" Aj:   AkA-A+ A H:   AqE A Lq! Aj!@ " ü"A°È j-   \rr:    ·¡D      0@¢!@ Aj" AjkAG\r  D        a q\r  A.:  Aj! D        b\r A!\n Aûÿÿÿ   k"jkJ\r   A   Aj  Aj"k"\r \rAk H \r "  Ar"jj"    	   A0   As    \r  A0  \rkA A       A    AÀ s    J!\n A°j$  \n B K  (<# Ak" $   Aÿq  Aj"AÀ  6 AA !  )!  Aj$ B  # A k"$    ("6  (!  6  6   k"6  j!@@@  (< Aj"Ar   F""AA " Aj "AÀ  6 AA @ !@  ("F\r A H@ ! AA   ("K"	j"  A  	k" ( j6  AA 	j" (  k6   k!  (< "  	k" Aj "AÀ  6 AA E\r  AG\r    (,"6   6     (0j6   A 6  B 7    ( A r6 A  AF\r   (k A j$     ·_|~}# Ak"	$ @@@@  AJ@ ("A	kAwK@AË  Aj"6 A¼é( !A¸é( !\rA Ó( ! (!@@@@@@ -  "A,GA  E@ E\r@ \rE@A¸é 6  !\r  \rG\rA !A¼é Aj"\n6  E\r \n! Aj! A0k"AÿqA	K\r AN\rA Ó Aj"6  A°Ój   pk o:   Aj! ! Aj!A !AË   Ak"6   AÃ J\r  AG@@ Al"  Atj("6 K A°Í j! A°Ë j! A Ë j!A !@@@@@@ -  "A,GA  E@ E\r@ ("E@  6  G\r  (Aj6A  -  \r (\rAï\n  A0kAÿqA	K\r A1F@ ("AÀ N\r  Atj 6   (Atj (6   (Aj6 Aj! Aj!A«\n AË\n AÇ	\n Aý	\n  Aj" G\r @ A L@A ! Aq!A !A !A ! AO@ Aüÿÿÿq!A !@ "Aj! - ³Ó - ²Ó - ±Ó  - °Ójjjj! Aj" G\r  E\r@  - °Ój! Aj! Aj" G\r   AG@ Aq!A !A !A !@  Ak"AO@ A|q!A !@ Al" (ÜW  (ÌS  (¼O  (¬K jjjj! Aj! Aj" G\r  E\r@ Al(¬K j! Aj! Aj" G\r @  k" A N@     n" lF\rAA!	 Aq!A !A !@ AO@ Axq!A !@ 	Aðj"  Atj 6  Ar"At  j 6  Ar"At  j 6  Ar"At  j 6  Ar"At  j 6  Ar"At  j 6  Ar"At  j 6    Ar"Atj 6  Aj! Aj" G\r  E\r@ 	Aðj Atj 6  Aj! Aj" G\r A!  AG@@ 	Aðj  Atj( "Al"A Ë j! A¬Ë j( !  !@@  	Aðj Atj"Ak( "Al"A¬Ë j( k" A  (  A Ë j( kA L\r  6  AJ Ak!\r A ! 	Aðj Atj 6   Aj"  G\r  Aj! \rAj!A !@ At"    	Aðjj( "6 ð Al"  Al"A Ë j"( "6°Û   A¬Ë j( "6´Û  A°Ûj"   Ak( AE6@@ \n ("k" A N@ \r ("k"A N\r A 6  Aj  Ajl" 6    lAt"6   At"" 6  "6@ E\r   E\r  E\r   k!  k! A L@ A|q! Aq!A !A !@A !A !A !@ AO@@   At"j 6   j 6    Aj"j Ar6   j 6    Aj"j Ar6   j 6    Aj"j Ar6   j 6  Aj! Aj! Aj" G\r  ! E\rA !@   At"j 6   j 6  Aj! Aj! Aj" G\r  Aj" G\r  Aj! Aj! Aþÿÿÿq! Aq!A !A !@A !@   At"j 6   j 6    lAtj!A !A !@ AG@@  At"j  j(  j  j(  j \rlj6   Ar"j  j(  j  j(  j \rlj6  Aj! Aj" G\r  E\r  At"j  j(  j  j(  j \rlj6  Aj! Aj" G\r   Aj"G\r  Aj" G\r A !@ Al(¸ÛE@AA!\n Aj" G\r A ! @@  Al"(¸Û"\rA L\r  A°Ûj"("A L\r   A\ntA òj! Aüÿÿÿq! Aq! (!A ! AI!@   lAtj!\nA !A !A !@ E@@  \n Atj"( jA:    (jA:    (jA:    (jA:   Aj! Aj" G\r  ! E\rA !@  \n Atj( jA:   Aj! Aj" G\r  Aj" \rG\r   Aj"  G\r  A J@ Aþÿÿÿq! Aq! Aüÿÿÿq! Aq!\r AI! !@@ "  N\r  A\ntA òj!A !A !A ! E@@ At" ( ò  j-  j6 ò Ar"At" ( ò  j-  j6 ò Ar"At" ( ò  j-  j6 ò Ar"At" ( ò  j-  j6 ò Aj! Aj" G\r  \rE\r@ At" ( ò  j-  j6 ò Aj! Aj" \rG\r A !  At"A 6   A\ntA°´j!  AtA°j! A j!\nA !A !A !@ AG@@  At( ò"J@  Atj 6   j :   \n Aj"6   Ar"At( ò"J@  Atj 6   j :   \n Aj"6  Aj! Aj" G\r  ! E\r At( ò" N\r   Atj 6   j :   \n Aj6   Ak!  A J\r  AtAj" E\rA A   ü AAÙ AA  !A\n\n A×	\n AÝ\n A»\n A÷\n Aµ\n\n A !@A ( " A L\r @ At(°A°Ój-   - °´M@   Aj"G\rAA!A°é 6 AAè\n"   A"   AL!A!A¡" @  " A   A J!AÀ   Ak"    K"   AÀ O!@  @ ­!%@AÀ! @A°¼-  \r   A¬	  A£	\r A°¼A:  !!A Ó( " E\r@Aê( \r B ! #Bø©ú·Þ~BëÖèÈ¡äá }"" ! "Q!!@Aàé( \rA Ó( "@  A°Ó ü\n  AË ( "A J@A !AË ( !@ 	A\nj Atj !B\r !"!B !"!B !"! Al"4¸Û§"6 @ (´Û"A L\r  (¼Û  lAtj!\nA ! AG@ Aq Aþÿÿÿq!A !@   \n Atj"( j" -  "  Ak:     (j" -  "  Ak:   Aj! Aj" G\r E\r   \n Atj( j" -  "  Ak:   Aj" G\r @@ A L\r  Aq!A !A !A !@ AO@ Aüÿÿÿq!A !@    j"-  A Gj - A Gj - A Gj - A Gj! Aj! Aj" G\r  E\r@    j-  A Gj! Aj! Aj" G\r A ! E\r @ AÿÿqE@Aê( \rAàé( \r# Ak"$  ¸D    ÐsA£"½!"| ½B4§"Aÿq"A¾kAÿ~M@ "B"$B|BT@D      ð? $P\r DVUUUUUµ?  $BpV\rD          ¢ "B YD      ð? ¡ A½M\r AÿK@# Ak"D       p9 +D       p¢# Ak"D       9 +D       ¢| A$+ D      À¢A¨Â +  AÂ + "D    UUõ?¢D      ð¿ " D  UUU>¢" "A$+ D      À¢A Â +  "   "¡    A$+ "¢"   ¢" ¢   ¢"    "¡      ¢"¢   AÈ$+ ¢AÀ$+  ¢ A¸$+ ¢A°$+   ¢ A¨$+ ¢A $+   ¢ "    "¡ 9 "B@¿" ½B@¿"¢!  ¡ ¢  +  ¡ ¢ @ ½""B4§Aÿq"AÉkA?I\r  D      ð?  AÉI\r AIA !\r  "B S@# Ak"D       9 +D       ¢# Ak"D       p9 +D       p¢ A+ ¢A + " " ¡"A°+ ¢ A¨+ ¢    " ¢" ¢ AÐ+ ¢AÈ+  ¢  AÀ+ ¢A¸+  ¢ ½"$§AtAðq"+    ! ) $B-|!" E@| $BP@ "B?}¿" ¢  D       ¢ "Bð?|""¿" ¢"  "D      ð?c|# Ak" D       9 +D       ¢9 "B¿ D      ð¿D      ð? D        c" "   ¡    ¡    ¡" D        a D       ¢ "¿" ¢   Aj$ D333333ã?¢!A !@ 	Aðj Atj"A  k· £(9  AG@  As· £(9 Aj!AêAê( Aj6 AË ( !@ 	A\nj !B\r !"!B !"!B !"! ¬§"Atj"( " !B\r !"!B !"!B !"! Al"A¸Ûj4 §"F\r @ A°Ûj"("A L@A ! ("  lAtj!\r   lAtj!A !AË ( "Ak!\nA !@    Atj( j" -  "AjA   \nG":    A Gk AÿqA Gj! Aj" G\r  Aq! \nAÿq!@@ Ak"E@A ! Aþÿÿÿq!A !A !@   \r Atj"( j" -  "Ak  ":     (j" -  "Ak  ":    A Gk A Gj A Gk A Gj! Aj! Aj" G\r  E\r   \r Atj( j" -  "Ak  ":    A Gk A Gj! A L\r  	Aðj Atj+  !B\r !"!B !"!B !"!BºD       <¢d\r @@ E@A ! Aþÿÿÿq!A !A !@   \r Atj"( j" -  "AjA  \n G:     (j" -  "AjA  \n G:   Aj! Aj" G\r  E\r   \r Atj( j" -  "AjA   \nG:  @ E@A ! Aþÿÿÿq!A !A !@    Atj"( j"\n \n-  "\n  \nAk:     (j" -  "  Ak:   Aj! Aj" G\r  E\r    Atj( j" -  "  Ak:    6   j! AþÙÄ	M@ Aj! \r \rAê( E@AË ( At"@A î 	A\nj ü\n  AêA6 AêA6 Aê( E\r   	 #B|"# %R\r A ! # A k"$ AÈéAË ( "6 AÐéA 6 AÌ¼AAË ( "AH\r A AI\r AA A	I"6 AÐ¼AÀ  n"A Ó( jAk m"\n6 @ \nAÀ J\r @AÌ"E@A!\r "\rA L\r AH\r A!B!!@@ \r Ak"Al(¸Û"mA L@B!"A! \nAt!A !@ !!" !   "l"¬B!$B!#@ #"!B!# ! $T\r    Aj"At jl !§AtjAJ\rAÐé 6   G@ !!" !  \r  " kAl(¸Û"mJ\rA!AÈéA6  !  !!" !AÈé   k"6   E\rAØ¼ "B}7 Aà¼ "§A\r"6 Aä¼  \nlAt"6 Aè¼   lAt" 6 @@ E\r  E\r   \r 	 	  	AÈé 6 AÐéA 6  AÐé( ! AÐ¼( !  6  "ºD      @¢ At  Atj l· D      °>¢9   6  Aì¼( 6AÐÄ ( Aº  A j$ A !Aô\n" @  " A   A J!@A³" @AÀÈ   "6 AÀÈ ( ! A L@AÀÈ A6 AÀ  A  k" ALAk  H"   AÀ O!  @ ­!%B !$@AÀ! @A°¼-  \r   A¬	  A	\r A°¼A:  !!AA\r"E\rAË ( " A J@ A\nj!A !@  Atj Al(¸ÛAt"6  E\r Aj"  G\r @Aê( \r B ! $BÚË­ÆÒÚQ~BÑû¡µ¾î¼Ã }"" ! "Q!# A\nj!A! @Aäé( \rA !\rAË ( "A J@@ \rAl"A°Ûj!  \rAtj"( !@ (ÈÛE@ ("A L\r Aq!\nA !A !@ AO@ Aøÿÿÿq!A !@  Atj 6   Ar"Atj 6   Ar"Atj 6   Ar"Atj 6   Ar"Atj 6   Ar"Atj 6   Ar"Atj 6   Ar"Atj 6  Aj! Aj" G\r  \nE\r@  Atj 6  Aj! Aj" \nG\r  AF\r ­!!@  !B}""§Atj"( !   #B\r #"#B #"#B #"# !§Atj"( 6   6  !BV "!!\r  (At"E\r   Ak(  ü\n   \rAj"\r G\r A Ó( "@ A°Ó ü\n   A 6AÀÈ ( !@  "AF@A !@A!A!@ !  H@ A AktjAj"AG\rA ! Aj! A~ tAs"G\r    t6AðéAðé( Aj6  A A°é( $AG@  Aj! Aê( \rAê( E@AË ( At" @A î Aj  ü\n  AêA6 AìéA6 AêAê(  (\nj6 AË ( " A J@ A\nj!A !@  Atj( 	 Aj"  G\r  	 $B|"$ %R\r A !A´éAÀ Aà"   AA A°é( "AN"   k"Ak"   H" A   A J" " AÀ N"6 @  @# A0k" $   Aj"A A,ü  	Aðj A,ü\n   	AÄÈ ( 6ð 	AÈÈ ( 6ô  A0j$  	A6ð 	A 6øA´é( "A J@@AÀ! @A°¼-  \r   A¬	  Aö	\r A°¼A:  AA¨0\r" E\r  AË ( "A Ó( l"A\r"6,    AjlA\r"6,  AðÅ(  AtAjl"6, E\r E\r E\r A J@  A,j!A !@  Atj Al(¸ÛAt"6  E\r\n Aj" G\r   Bø?70  A\nj!\r  Aj!@@Aê( \r Aèé( \r   A 60  (¤0AtAÊj" ( "Aj6    60A Ó( "@  A°Ó ü\n  @AË ( "\nA J@ \nAt"@ Aÿ ü  A L\r \nAüÿÿÿq! \nAq!A !@ AÆj!A !A !A !A !A !@ \nAO@@   A\ntj"-  j - j - j - j! Aj! Aj" G\r  ! ! E\rA ! !@   A\ntj-  j! Aj! Aj" G\r  \r Atj 6  Aj" G\r  A L\r  At"E\r  \rA  ü   \nlAt"@  (,A  ü   A D      ð?A°é( @Aê( E@AË ( At"@A î  A*j ü\n    +0!AôéA6 Aøé 9 AêA6     (¤0"Aj6¤0    +0"  90 AËH\rAêAê(   ( 0j6 AË ( "A J@  A,j!A !@  Atj( 	 Aj" G\r   (,	  (,	  (,	  	A´é( ! Aj" H\r A°é( !A´é( ! 	 6Ð 	 6Ø 	 6Ü 	 6à 	AÀ A  k"   AL" A¸Û( "   H"   AÀ N"\r6Ô 	 6È 	A¸é( 6À 	A¼é( 6Ä 	AË ( 6ÌAÐÄ ( "AÍ 	AÀjAÀéBø?7 D      ð?!D      ð?!@AË ( " A L\r AÈé( !A !  AG@  Aq  Aþÿÿÿq! A !@ Al(¸Û·!  J@AÀé  ¢"9  Ar"Al(¸Û·!  J@AÀé  ¢"9   ¢ ¢! Aj! Aj"  G\r E\r  Al(¸Û·"¢!  L\r AÀé  ¢"9 AÌéA¸Û( " 6 @AÐé( "@ 	  6¸ 	 9° 	 6¨ 	 9  Aä 	A j 	  6 	 9 A 	AjA ! A !# Ak"$ @A¸Û( "A L\r  Aq! AO@ Aøÿÿÿq!@  At  6°ì  Ar"At 6°ì  Ar"At 6°ì  Ar"At 6°ì  Ar"At 6°ì  Ar"At 6°ì  Ar"At 6°ì  Ar"At 6°ì  Aj!  Aj" G\r  E\rA !@  At  6°ì  Aj!  Aj" G\r @@@@@A" @  E\rAË ( AN\rAË ( AH\rAA¨0\r"E\r A Ó( " AË ( "l"A\r"6,  A\r"6, AðÅ( At"\n6, E\r E\r \nE\r  @ A°Ó  ü\n  @ A L\r  At" @ AjAÿ  ü  Aq!A !A !  AO@ Aøÿÿÿq!\nA !@   Atj  6    Ar"Atj 6    Ar"Atj 6    Ar"Atj 6    Ar"Atj 6    Ar"Atj 6    Ar"Atj 6    Ar"Atj 6   Aj!  Aj" \nG\r  E\r@   Atj  6   Aj!  Aj" G\r A ! A°é( !AË ( ! (,!@       Aj" A<G\r   A A°é(  (,"\nAðÅ( Atj"A!A¸Û( "AJ@@  At(°ì"Atj* !& ! @@   At"A¬ìj( "Atj*  &]E\r A°ìj 6   AJ  Ak! \r A !   AtA°ìj 6  Aj" G\r  (,	 	 \n	 	 Aj$ A\n A\n A ! AØé7 @ A J@@AÀ!@A°¼-  \r  A¬	 A¬	\r A°¼A:  AA\n\r"E\rA° A° ( "Aj6 @ A¸Û( N\r  Aj!@Aê( \r AtA°ìj( !A !A Ó( "@ A°Ó ü\n  A°é( !@@@@@A´Û( "A J@A¼Û(   lAtj!\n@  \n Atj( j-  E@ A L\r Ak! Aj" G\r   6 AË ( AF\rA !AË ( ! AG@ Aq Aþÿÿÿq!A !@  \n Atj"( j" -  "  Ak:    (j" -  "  Ak:   Aj! Aj" G\r E\r  \n Atj( j" -  "  Ak:    6 AË ( AG\r (\n!AêAê( "Aj6 AØé) }§"AH\rA !@A¤( "A J@@  At(°´j-   - °¼K\r Aj" G\r  A \rAê( \r (\n!AêAê( "Aj6 AØé) }§"AN\rAê( E@AË ( At"@A î  ü\n  AêA6  	AÀé+ "9x 	 6 	Aê(  j·D    eÍÍA£9 	 Aj"6` 	  ·"¢AÌé( "·"£9p 	 6d 	 D      Y@¢ £9h AÖ 	Aà jA° A° ( "Aj6  A¸Û( H\r AêAê(  (\nj6  	  Aj"  \rG\r AäéA6 AàéA6 AèéA6 Aìé( @ 	Aðé( 6P A 	AÐ jAôé( @ 	Aøé+ 9@ 	Aê( 6H A½ 	A@kAê( @ 	Aê( ·D    .A£90 Aþ\r 	A0jAê( ! Aê( !AÌé( !Aê( !!! 	 6  	 6$ 	 !AØé) }>( 	Aç	A³	 6 	  ·D    eÍÍA£9 Aë 	AjAê( @A !AË ( " A J@@ At"( ðAt"A êj ( îAt" Al"(ÀÛj( 6  A ìj (ÄÛ j( 6  Aj"  G\r AÙA !AË ( A L@A !@ At" ( ê! 	  ( ì6 	 6 # Ak" $    	6AèÉ AÆ 	A   Aj$ A ! Aj"AË ( H\r AA! 	Aj$  A	\n A\n u# Ak" $ @  Aj  Aj\r A´   (AtAj"6  E\r   ("@A´ ( "  (AtjA 6   E\rA´ A 6   Aj$ ¡= Aout of memory -+   0X0x -0X+0X 0X-0x+0x 0x empty piece row empty board row ragged piece rows ragged board rows piece has no filled cells too many pieces restarter annealer worker no solution nan inf piece too large board too large solution found guided bad character in piece spec bad character in board spec usage: solver <depth> <board_spec> [piece_spec...] SOLVER_NCPU SOLVER_RESTART SOLVER_BPORDER NOSOLUTION NAN SOLVER_ANNEAL INF SOLVER_RBASE SOLVER_ROLE SOLVER_TABLE SOLVED SOLVER_GUIDED . (null) depth out of range (1-8) solver: search space: %.3g placement permutations across %d first-piece placements\n solver: search space: %.3g placement permutations; the endgame table absorbs the last %d pieces, leaving %.3g to search across %d first-piece placements\n solver: annealing found the solution after %.0f million moves\n solver: guided search found the solution at cost cap %.0f after %ld search nodes\n solver: %s\n solver: a restarting search found the solution on run %ld\n solver: first-piece placement %d/%d cleared â %.1f%% of the search space ruled out (~%.3g of %.3g permutations), %.2f billion nodes, %lds elapsed\n solver: %s after %.2f billion nodes, %d/%d first-piece placements exhausted, %lds elapsed\n %d %d\n solver: %dx%d board, depth %d, %d pieces, budget %d, %d threads (+%d annealing, +%d restarting, +%d guided)\n solver: endgame table over the last %d pieces: %ld distinct effects (<= %ld combos, %.0f MB)\n þ+eGg@      8C  úþB.v¿:;¼÷½½ýÿÿÿÿß?<TUUUUÅ?+ÏUU¥?Ð¤g?      ÈBï9úþB.æ?$Äÿ½¿Î?µô×k¬?ÌPFÒ«²?:Nà×U? AÂð?n¿O;<53û©=öï?]ÜØ`q¼aw>ìï?Ñfz^¼nèãï?ög5RÒ<tÓ°Ùï?úù#Î¼ÞöÝ)kÐï?aÈæaN÷`<ÈuEÇï?Ó3[ä£<óÆÊ>¾ï?m{]¦<ùlXµï?üïýµ<÷Gr+¬ï?Ñ/p=¾><¢ÑÓ2ì£ï?n4j¼Óþ¯fï?½/*RV¼Q[Ðï?UêNïP¼Ì1lÀ½ï?ôÕ¹#É¼à-©®ï?¯U\\éãÓ<Q¥Èzï?H¥ê¼{Q}<¸rï?=2ÞUð¼ê8ùjï?¿S?<uËoë[cï?&ëvÙ¼Ô\\à[ï?`/:>÷ì<ª¹h1Tï?8Ëç¼Ùü"PMï?Ã¦DAo<Öb;Fï?}ä°z<Ü}I?ï?¨¨ãý<8bunz8ï?}Htò^<?¦²OÎ1ï?òç+G<Ý|âeE+ï?^q?{¸¼cõáß$ï?1«	má÷<áÞõï?ú¿o!=¼ÙÚÐï?´\nr7<ä¦ï?ËÎn<V/>©¯ï?¶«°MuM<·1\nþï?Lt¬âB<1ØLüpï?JøÓ]9Ý<ÿd²üî?[;£¼ñ_Åöî?hPKÌíJ¼Ë©:7§ñî?-Qø¼fØm®ìî?Ò6>èÑq¼÷å4Ûçî?Î³¼å¨Ã-ãî?mL*§H<"4L¦Þî?i(z`¼¬EÚî?[H§X¼*.÷!\nÖî?Ig,|¼¨PÙõÑî?¬Â`ícC<-a`Îî?ïd;	f<W íAÊî?y¡ÚáÌn<Ð<Áµ¢Æî?0?ÿ<ÞÓ×ð*Ãî?°¯z»Îv<\'*6ÕÚ¿î?wàTë½<\rÝý²¼î?£q 4¼§,v²¹î?I£ÜÌÞ¼BfÏ¢Ú¶î?_8½ÆÞx¼OV+´î?ö\\{ìF¼]Ê¤±î?×ý5<Ú\'µ6G¯î?/·{<ýÇÔ­î?	Tâác<)THÝ«î?êÆPÇ4<·FY&©î?5Àd+æ2<H!­o§î?vaJä¼	Üv¹á¥î?¨Mï;Å3¼U:°~¤î?®é+xS¼ ÃÌ4F£î?XXVxÝÎ¼%"U8¢î?d~ªW<s©LÔU¡î?("^¿ï³¼Í;f î?¹4­j¼¿Úu î?î©m¸ïgc¼/e<²î?QàT=Ü¼Qù}î?Ï>Z~dx¼t_ìèuî?°}ÀJî¼t¥Hî?æU2¼ÉgBVëî?ÓÔ	^Ë<?]ÞOi î?¥M¹Ü2{¼ës¡î?kÀgTýì<2Á0í¡î?UlÖ«áëe<bNÏ6ó¢î?BÏ³/Å¡¼>T\'¤î?47;ñ¶i¼ÎL¥î?ÿ:^¼­Ç#F§î?nWrØPÔ¼íDÙ¨î? [g­<fÙÇªî?´êðÁ/·<Û *Bå¬î?ÿçÅ`¶e¼Dµ2¯î?D_óYö{<6w®±î?=§	¼Æÿ[´î?)l¸©]¼åÅÍ°7·î?Y¹|ù#l¼RÈËDºî?ªùô"CC¼PNÞ½î?Kf×lÊ¼ºÊpñÀî?\'Î+ü¯q<ð£Äî?»s\ná5Òm<##ãcÈî?c"b"Å¼eå]{fÌî?Õ1âã<3-JìÐî?»¼ÓÑ»¼]%>²Õî?Ò1î1Ì<X³0Ùî?³Zsni<¿ýyUkÞî?´Íß¼zóÓ¿kãî?3Ëw<­ÓZèî?úÙÑJ{¼f¶)îî?º®ÜVÙÃU¼ûO¸¢óî?@ö¦=¤¼:Yårùî?4­8ôÖh¼G^ûòvÿî?5Xkâî¼J¡0°ï?ÍÝ_\n×ÿt<ÒÁKï?¬úû½¼	×[Âï?³¯0®ns<RÝï?ý\\2ã<zÐÿ_« ï?¬Y	Ñà<KÑW.ñ\'ï?gN8¯Íc<µçm/ï?hl,kg<iïÜ 7ï?ÒµÌ¼úÃ]U?ï?oúÿ?]­¼|J-Gï?I©u8®\r¼ò\rOï?§=¦£t<¤ûÜXï?"@ ¼Éã`ï?¬ÁÕPZ<2Ûæiï?Kk¬Y:<`´ó!sï?>´!Õ¼_{3|ï?É\rG;¹*¼)¡õFï?Ó:`¶t<ö?ç.ï?qrQìÅ<LÇûQï?ðÓ÷¼Ú¤¢¯¤ï?}t#â®¼ñg-H¯ï? ªA¼Ã<\'Zaîºï?2ë©Ã+<ºk7+Åï?îÑ1©d<@En[vÐï?íã;äº7¼¾­ýÛï?ÍM;w<ØÁçï?Ì`AÁS<ñq+Âóï? 8úþB.æ?0gÇWó.=      à¿`UUUUUå¿     à?NUYé?z¤)UUUå¿éEH[Iò¿Ã?&+ ð?      ö? Aá$È¹ò,Ö¿V7($´ú<     ö? A%X¿½ÑÕ¿ ÷àØ¥½     `ö? A¡%XEwvÕ¿mP¶Õ¤b#½     @ö? AÁ%ø-­Õ¿Õg°äæ¼      ö? Aá%xw_¾Ô¿à>)i½      ö? A&`ÂaÔ¿ÌLH/Ø=     àõ? A¡&¨0Ô¿:íóBÜ<     Àõ? AÁ&HiUL¦Ó¿`QÆ± =      õ? Aá&ÝGÓ¿ÅÔMY%=     õ? A\' áºâèÒ¿Ø+·{&=     `õ? A¡\'ÞZÒ¿?°Ï¶Ê=     `õ? AÁ\'ÞZÒ¿?°Ï¶Ê=     @õ? Aá\'xÏûA)Ò¿vÚS($Z½      õ? A(iÁÈÑ¿Tçh¼¯½      õ? A¡(¨««\\gÑ¿ð¨3Æ=     àô? AÁ(H®ùÑ¿fZýÄ¨&½     Àô? Aá(sâ$£Ð¿ô~îk½      ô? A)Ð´%@Ð¿-ô¸6ð¼      ô? A¡)Ð´%@Ð¿-ô¸6ð¼     ô? AÁ)@^m¹Ï¿<«*W\r=     `ô? Aá)`ÜË­ðÎ¿$¯·&+=     @ô? A*ð*n\'Î¿ÿ?TO/½      ô? A¡*ÀOk!\\Í¿hÊ»º!=      ô? AÁ* Ç÷Ì¿4hOy\'=      ô? Aá* Ç÷Ì¿4hOy\'=     àó? A+-tÂË¿·1°N=     Àó? A¡+ÀNÉóÊ¿fÍ?cNº<      ó? AÁ+°â¼#Ê¿êÁFÜd%½      ó? Aá+°â¼#Ê¿êÁFÜd%½     ó? A,PôZRÉ¿ãÔÁÙÑ*½     `ó? A¡,Ð e È¿	úÛ¿½+=     @ó? AÁ,à«Ç¿XJSrÛ+=     @ó? Aá,à«Ç¿XJSrÛ+=      ó? A-ÐçÖÆ¿fâ²£jä½      ó? A¡-§p0ÿÅ¿9PC½      ó? AÁ-§p0ÿÅ¿9PC½     àò? Aá-°¡ãå&Å¿[Þ ½     Àò? A.Ël+MÄ¿<x5aÁ=     Àò? A¡.Ël+MÄ¿<x5aÁ=      ò? AÁ. üqÃ¿:T\'Mxñ<     ò? Aá.ðøRÂ¿Äq0$½     `ò? A/`/Õ*·Á¿£¤.½     `ò? A¡/`/Õ*·Á¿£¤.½     @ò? AÁ/Ð|~×À¿ô[èi\n=     @ò? Aá/Ð|~×À¿ô[èi\n=      ò? A0àÛ1ì¿¿ò3£\\Tu%½      ò? A¢0+n\'¾¿< ð*,4*=      ò? AÂ0+n\'¾¿< ð*,4*=     àñ? Aá0À[T^¼¿¾_XW½     Àñ? A1àJ:mº¿Èª[è59%=     Àñ? A¡1àJ:mº¿Èª[è59%=      ñ? AÁ1 1ÖEÃ¸¿hV/M)|=      ñ? Aá1 1ÖEÃ¸¿hV/M)|=     ñ? A2`åÒð¶¿Ús3É7&½     `ñ? A¡2 ?µ¿W^Æa[=     `ñ? AÁ2 ?µ¿W^Æa[=     @ñ? Aá2à×A³¿ßùÌÚ^,=     @ñ? A3à×A³¿ßùÌÚ^,=      ñ? A¡3£î6e±¿	£v^|=      ñ? AÁ3À0\n¯¿6Y-=      ñ? Aá3À0\n¯¿6Y-=     àð? A4qÝB«¿LpÖåz=     àð? A¡4qÝB«¿LpÖåz=     Àð? AÁ4À2öXt§¿î¡ò4Fü,½     Àð? Aá4À2öXt§¿î¡ò4Fü,½      ð? A5Àþ¹£¿ªþ&õ·õ<      ð? A¡5Àþ¹£¿ªþ&õ·õ<     ð? AÂ5x¿ä	~|&)½     ð? Aâ5x¿ä	~|&)½     `ð? A6Õ¹¿9¦úT(½     @ð? A¢6ü°¨À¿¦Óö|ß¼     @ð? AÂ6ü°¨À¿¦Óö|ß¼      ð? Aâ6k*à¿ä@Ú\r?â½      ð? A7k*à¿ä@Ú\r?â½      ð? A¶7ð? AÕ7Àï? Aâ7u?è+kÇ½     ï? A8XV ?Ò÷â[Ü#½     @ï? A¢8É(%I?4Z2º *½      ï? AÁ8@ç]A ?S×ñ\\À=     Àî? Aâ8.Ô®f¤?(ý½us,½     î? A9Àª¨?}&ZÐy½     @î? A¡9ÀÝÍsË¬?(ØGòh½      î? AÁ9ÀÀ1ê®?{;ÉO>½     àí? Aá9`FÑ;±?\rV]2%½      í? A:àÑ§õ½³?×NÛ¥^È,=     `í? A¡: MZéµ?]<i,½     @í? AÁ:Àê\nÓ ·?2í©ì<      í? Aá:@Y]^3¹?ÚG½:\\#=     Àì? A;`­Èj»?åh÷+½      ì? A¡;@¼X¼?Ó¬ZÆÑF&=     `ì? AÁ; \n9Ç¾?àEæ¯hÀ-½     @ì? Aá;àÛ9è¿?ý\n¡OÖ4%½      ì? A<à\'Á?ò-Îxï!=     àë? A¡<ð#~+ªÁ?48D§,=      ë? AÁ<aÑÂ?¡´Ël=     ë? Aá<°üeÃ?rK#¨/Æ<     @ë? A=°3=Ä?x¶ýTy%=      ë? A¡=°¡äå\'Å?Ç}iåè3&=     àê? AÁ=¾NWÆ?x.<,Ï=     Àê? Aá=puðÆ?á!å%½      ê? A>PDÇ?Cpf½     `ê? A¢>9ë¯¾È?Ñ,éªT=½     @ê? AÂ>÷ÜZZÉ?oÿ X(ò=      ê? Aá>à<íÊ?i!VPCr(½     àé? A?Ð[WØ1Ë?ªá¬N5½     Àé? A¡?à;8ÐË?¶TYÄK-½      é? AÁ?ðÆûoÌ?Ò+Årìñ¼     `é? Aá?Ô°=±Í?5°÷*ÿ*½     @é? AÀ çÿSÎ?0ôA`\'Â<      é? A¢À Ýä­õÎ?»e!Ê¼      é? AÁÀ °³lÏ?0ßÊìË=     Àè? AáÀ XM`8qÐ?NíÛø<      è? AÁ `ag-ÄÐ?éê<\'=     è? A¡Á è\'Ñ?ð¥c!,½     `è? AÁÁ ø¬Ë\\kÑ?¥÷Í+=     @è? AáÁ hZc¿Ñ?·½GQí¦,=      è? AÂ ¸mEÒ?êºFºÞ\n=     àç? A¡Â Ü|ð¾Ò?ôPJú*=     Àç? AÁÂ `ÓáñÓ?¸<!Ózâ(½      ç? AáÂ ¾vgkÓ?Èwñ°Ín=     ç? AÃ 03wRÂÓ?\\½¶T;=     `ç? A¡Ã èÕ#´Ô?àì6ä=     @ç? AÁÃ ÈqÂqÔ?uÖg	Î\'/½      ç? AáÃ 0àÉÔ?¤Ø\n .½      ç? AÄ  8®"Õ?YÇdp¾.=     àæ? A¡Ä ÐÈS÷{Õ?ï@]îí­=     Àæ? AÁÄ `Yß½ÕÕ?Üe¤*\n½P$ AàÄ A            	             \n\n\n  	  	       A±Å !         \r \r   	   	    AëÅ  A÷Å         	        A¥Æ  A±Æ        	        AßÆ  AëÆ         	             A¢Ç          	 AÓÇ  AßÇ         	        AÈ  AÈ \'        	         0123456789ABCDEF AÀÈ @\r             AÜÈ  AôÈ       L AÉ  AÉ ÿÿÿÿÿÿÿÿ AàÉ 	P$       AôÉ  AÊ       X   A¤Ê  A´Ê ÿÿÿÿ\n AøÊ è$  x\n  ')}function getBinarySync(file){return file}async function getWasmBinary(binaryFile){return getBinarySync(binaryFile)}async function instantiateArrayBuffer(binaryFile,imports){try{var binary=await getWasmBinary(binaryFile);var instance=await WebAssembly.instantiate(binary,imports);return instance}catch(reason){err(`failed to asynchronously prepare wasm: ${reason}`);abort(reason)}}async function instantiateAsync(binary,binaryFile,imports){return instantiateArrayBuffer(binaryFile,imports)}function getWasmImports(){var imports={a:wasmImports};return imports}class ExitStatus{name="ExitStatus";constructor(status){this.message=`Program terminated with exit(${status})`;this.status=status}}var HEAP8;var callRuntimeCallbacks=callbacks=>{while(callbacks.length>0)callbacks.shift()(Module)};var onPreRuns=[];var HEAPU8;var alignMemory=(size,alignment)=>Math.ceil(size/alignment)*alignment;var getHeapMax=()=>4294901760;var growMemory=size=>{var oldHeapSize=wasmMemory.buffer.byteLength;var pages=(size-oldHeapSize+65535)/65536|0;try{wasmMemory.grow(pages);updateMemoryViews();return 1}catch(e){}};var HEAPU32;var ENV={};var getExecutableName=()=>"./this.program";var getEnvStrings=()=>{if(!getEnvStrings.strings){var lang=(globalThis.navigator?.language??"C").replace("-","_")+".UTF-8";var env={USER:"web_user",LOGNAME:"web_user",PATH:"/",PWD:"/",HOME:"/home/web_user",LANG:lang,_:getExecutableName()};for(var x in ENV)if(ENV[x]===void 0)delete env[x];else env[x]=ENV[x];var strings=[];for(var x in env)strings.push(`${x}=${env[x]}`);getEnvStrings.strings=strings}return getEnvStrings.strings};var stringToUTF8Array=(str,heap,outIdx,maxBytesToWrite)=>{outIdx>>>=0;if(!(maxBytesToWrite>0))return 0;var startIdx=outIdx;var endIdx=outIdx+maxBytesToWrite-1;for(var i=0;i<str.length;++i){var u=str.codePointAt(i);if(u<=127){if(outIdx>=endIdx)break;heap[outIdx++>>>0]=u}else if(u<=2047){if(outIdx+1>=endIdx)break;heap[outIdx++>>>0]=192|u>>6;heap[outIdx++>>>0]=128|u&63}else if(u<=65535){if(outIdx+2>=endIdx)break;heap[outIdx++>>>0]=224|u>>12;heap[outIdx++>>>0]=128|u>>6&63;heap[outIdx++>>>0]=128|u&63}else{if(outIdx+3>=endIdx)break;heap[outIdx++>>>0]=240|u>>18;heap[outIdx++>>>0]=128|u>>12&63;heap[outIdx++>>>0]=128|u>>6&63;heap[outIdx++>>>0]=128|u&63;i++}}heap[outIdx>>>0]=0;return outIdx-startIdx};var stringToUTF8=(str,outPtr,maxBytesToWrite)=>stringToUTF8Array(str,HEAPU8,outPtr,maxBytesToWrite);var lengthBytesUTF8=str=>{var len=0;for(var i=0;i<str.length;++i){var u=str.codePointAt(i);if(u<=127)len++;else if(u<=2047)len+=2;else if(u<=65535)len+=3;else{len+=4;i++}}return len};var keepRuntimeAlive=()=>0>0;var _proc_exit=code=>{EXITSTATUS=code;if(!keepRuntimeAlive()){Module["onExit"]?.(code);ABORT=true}quit_(0,new ExitStatus(code))};var exitJS=status=>{EXITSTATUS=status;if(!keepRuntimeAlive())exitRuntime();_proc_exit(status)};var bigintToI53Checked=num=>num<-9007199254740992||num>9007199254740992?NaN:Number(num);var UTF8Decoder=globalThis.TextDecoder&&new TextDecoder;var findStringEnd=(heapOrArray,idx,maxBytesToRead,ignoreNul)=>{var maxIdx=idx+maxBytesToRead;if(ignoreNul)return maxIdx;while(heapOrArray[idx]&&!(idx>=maxIdx))++idx;return idx};var UTF8ArrayToString=(heapOrArray,idx=0,maxBytesToRead,ignoreNul)=>{idx>>>=0;var endPtr=findStringEnd(heapOrArray,idx,maxBytesToRead,ignoreNul);if(endPtr-idx>16&&heapOrArray.buffer&&UTF8Decoder)return UTF8Decoder.decode(heapOrArray.subarray(idx,endPtr));var str="";while(idx<endPtr){var u0=heapOrArray[idx++];if(!(u0&128)){str+=String.fromCharCode(u0);continue}var u1=heapOrArray[idx++]&63;if((u0&224)==192){str+=String.fromCharCode((u0&31)<<6|u1);continue}var u2=heapOrArray[idx++]&63;if((u0&240)==224)u0=(u0&15)<<12|u1<<6|u2;else u0=(u0&7)<<18|u1<<12|u2<<6|heapOrArray[idx++]&63;if(u0<65536)str+=String.fromCharCode(u0);else{var ch=u0-65536;str+=String.fromCharCode(55296|ch>>10,56320|ch&1023)}}return str};var printCharBuffers=[null,[],[]];var printChar=(stream,curr)=>{var buffer=printCharBuffers[stream];if(!curr||curr===10){(stream===1?out:err)(UTF8ArrayToString(buffer));buffer.length=0}else buffer.push(curr)};var flush_NO_FILESYSTEM=()=>{_fflush(0);if(printCharBuffers[1].length)printChar(1,10);if(printCharBuffers[2].length)printChar(2,10)};var handleException=e=>{if(e instanceof ExitStatus||e=="unwind")return EXITSTATUS;quit_(0,e)};var stackAlloc=sz=>__emscripten_stack_alloc(sz);var stringToUTF8OnStack=str=>{var size=lengthBytesUTF8(str)+1;var ret=stackAlloc(size);stringToUTF8(str,ret,size);return ret};var _exit=exitJS;if(Module["print"])out=Module["print"];if(Module["printErr"])err=Module["printErr"];if(Module["arguments"])programArgs=Module["arguments"];Module["ENV"]=ENV;var _main,___funcs_on_exit,_fflush,__emscripten_stack_alloc,wasmMemory;function assignWasmExports(wasmExports){_main=Module["_main"]=wasmExports["j"];___funcs_on_exit=wasmExports["k"];_fflush=wasmExports["l"];__emscripten_stack_alloc=wasmExports["m"];wasmMemory=wasmExports["h"];wasmExports["__indirect_function_table"]}var wasmImports={f:()=>Date.now(),b:function(requestedSize){requestedSize>>>=0;var oldSize=HEAPU8.length;var maxHeapSize=getHeapMax();if(requestedSize>maxHeapSize)return false;for(var cutDown=1;cutDown<=4;cutDown*=2){var overGrownHeapSize=oldSize*(1+.2/cutDown);overGrownHeapSize=Math.min(overGrownHeapSize,requestedSize+100663296);var newSize=Math.min(maxHeapSize,alignMemory(Math.max(requestedSize,overGrownHeapSize),65536));var replacement=growMemory(newSize);if(replacement)return true}return false},d:function(__environ,environ_buf){__environ>>>=0;environ_buf>>>=0;var bufSize=0;var envp=0;for(var string of getEnvStrings()){var ptr=environ_buf+bufSize;HEAPU32[__environ+envp>>>2>>>0]=ptr;bufSize+=stringToUTF8(string,ptr,1/0)+1;envp+=4}return 0},e:function(penviron_count,penviron_buf_size){penviron_count>>>=0;penviron_buf_size>>>=0;var strings=getEnvStrings();HEAPU32[penviron_count>>>2>>>0]=strings.length;var bufSize=0;for(var string of strings)bufSize+=lengthBytesUTF8(string)+1;HEAPU32[penviron_buf_size>>>2>>>0]=bufSize;return 0},g:_exit,c:function(fd,offset,whence,newOffset){offset=bigintToI53Checked(offset);newOffset>>>=0;return 70},a:function(fd,iov,iovcnt,pnum){iov>>>=0;iovcnt>>>=0;pnum>>>=0;var num=0;for(var i=0;i<iovcnt;i++){var ptr=HEAPU32[iov>>>2>>>0];var len=HEAPU32[iov+4>>>2>>>0];iov+=8;for(var j=0;j<len;j++)printChar(fd,HEAPU8[ptr+j>>>0]);num+=len}HEAPU32[pnum>>>2>>>0]=num;return 0}};function applySignatureConversions(wasmExports){var origExports=wasmExports;wasmExports={};wasmExports["m"]=(f=>a0=>f(a0)>>>0)(origExports["m"]);wasmExports["emscripten_stack_get_current"]=(f=>()=>f()>>>0)(origExports["emscripten_stack_get_current"]);Object.setPrototypeOf(wasmExports,origExports);return wasmExports}function callMain(args=[]){var entryFunction=_main;args.unshift("./this.program");var argc=args.length;var argv=stackAlloc((argc+1)*4);var argv_ptr=argv;for(var arg of args){HEAPU32[argv_ptr>>>2>>>0]=stringToUTF8OnStack(arg);argv_ptr+=4}HEAPU32[argv_ptr>>>2>>>0]=0;try{var ret=entryFunction(argc,argv);exitJS(ret);return ret}catch(e){return handleException(e)}}var wasmExports;wasmExports=await async function(){function receiveInstance(instance){wasmExports=instance.exports;wasmExports=applySignatureConversions(wasmExports);assignWasmExports(wasmExports);updateMemoryViews();return wasmExports}var info=getWasmImports();wasmBinaryFile??=findWasmBinary();var result=await instantiateAsync(0,wasmBinaryFile,info);var exports=function(result){return receiveInstance(result["instance"])}(result);return exports}();await async function(args=programArgs){preRun();if(ABORT)return;initRuntime();if(true)callMain(args);postRun()}();
+;return Module}if(typeof exports==="object"&&typeof module==="object"){module.exports=createSolver;module.exports.default=createSolver}else if(typeof define==="function"&&define["amd"])define([],()=>createSolver);
+</script>
+<script type="text/plain" id="bm-src">(async () => {
+'use strict';
+if (window.__sssFollow) return window.__sssFollow(); // already following
+const R = {};
+(function (root) {
+'use strict';
+const LEGEND_SELECTOR = "table[border='1'][bordercolor='gray'] img[name='i_']";
+const BOARD_SELECTOR =
+"table[align='center'][cellpadding='0'][cellspacing='0'][border='0']";
+function iconKey(src) {
+return (src || '').split('?')[0].replace(/_\d+(\.[A-Za-z0-9]+)$/, '$1');
+}
+function parsePage(doc) {
+let legend = Array.from(doc.querySelectorAll(LEGEND_SELECTOR)).slice(0, -1);
+if (!legend.length) return null;
+legend = [legend[legend.length - 1], ...legend.slice(0, -1)];
+const state = new Map();
+legend.forEach((img, k) => state.set(iconKey(img.getAttribute('src')), k));
+const depth = Math.max(state.size - 1, 0);
+const boardTable = doc.querySelector(BOARD_SELECTOR);
+if (!boardTable) return null;
+const rows = [];
+for (const tr of boardTable.querySelectorAll('tr')) {
+let line = '';
+for (const img of tr.querySelectorAll('img')) {
+const k = state.get(iconKey(img.getAttribute('src')));
+if (k === undefined) throw new Error('A board cell image matches no legend entry.');
+line += k;
+}
+if (line) rows.push(line);
+}
+if (!rows.length) return null;
+const tables = [];
+for (const img of doc.querySelectorAll("img[src*='shapeshifter/square']")) {
+const t = img.closest('table');
+if (t && !tables.includes(t)) tables.push(t);
+}
+const pieces = tables.map(t => Array.from(t.querySelectorAll('tr'), tr =>
+Array.from(tr.querySelectorAll('td'),
+td => td.querySelectorAll("img[src*='shapeshifter/square']").length).join('')
+).join(','));
+if (!pieces.length) return null;
+const m = /LEVEL\s+(\d+)/i.exec(Array.from(doc.querySelectorAll('big'),
+b => b.textContent).join(' '));
+return { board: rows.join(','), depth, pieces, level: m ? +m[1] : null, boardTable };
+}
+const ICON_URL = /^https:\/\/images\.neopets\.com\/[\w\/.-]+$/;
+function legendIcons(doc) {
+let legend = Array.from(doc.querySelectorAll(LEGEND_SELECTOR)).slice(0, -1);
+if (!legend.length) return [];
+legend = [legend[legend.length - 1], ...legend.slice(0, -1)];
+return legend.map(img => {
+const s = img.getAttribute('src') || '';
+return s.startsWith('//') ? 'https:' + s : s;
+}).filter(s => ICON_URL.test(s));
+}
+function usernameOf(doc) {
+const link = doc.querySelector('td.user a[href*="userlookup.phtml?user="]');
+if (link && link.textContent.trim()) return link.textContent.trim();
+for (const sc of doc.querySelectorAll('script:not([src])')) {
+const m = /appInsightsUserName\s*=\s*['"]([^'"]+)['"]/.exec(sc.textContent);
+if (m) return m[1];
+}
+return null;
+}
+function pieceCells(spec) {
+const cells = [];
+spec.split(',').forEach((row, r) => {
+for (let c = 0; c < row.length; c++) if (row[c] === '1') cells.push([c, r]);
+});
+return cells;
+}
+function boardOf(spec) {
+const rows = spec.split(',');
+return { cols: rows[0].length, rows: rows.length,
+cells: Array.from(rows.join(''), Number) };
+}
+function specOf(b) {
+const out = [];
+for (let r = 0; r < b.rows; r++)
+out.push(b.cells.slice(r * b.cols, (r + 1) * b.cols).join(''));
+return out.join(',');
+}
+function apply(b, depth, pieceSpec, [col, row]) {
+const mod = depth + 1;
+const cells = pieceCells(pieceSpec);
+for (const [dc, dr] of cells)
+if (col + dc >= b.cols || row + dr >= b.rows || col < 0 || row < 0) return false;
+for (const [dc, dr] of cells) {
+const o = col + dc + (row + dr) * b.cols;
+b.cells[o] = (b.cells[o] + 1) % mod;
+}
+return true;
+}
+function keyOf(board, depth, pieces) {
+return depth + '|' + board + '|' + pieces.join(';');
+}
+function expandPlan(board, depth, pieces, moves) {
+if (moves.length !== pieces.length) return null;
+const b = boardOf(board), steps = [];
+for (let i = 0; i < pieces.length; i++) {
+steps.push({ key: keyOf(specOf(b), depth, pieces.slice(i)), moves: moves.slice(i) });
+if (!apply(b, depth, pieces[i], moves[i])) return null;
+}
+return b.cells.every(v => v === 0) ? steps : null;
+}
+function needAfter(board, depth, pieces, moves, k) {
+const b = boardOf(board), mod = depth + 1;
+for (let i = 0; i < k && i < moves.length; i++) apply(b, depth, pieces[i], moves[i]);
+return { cols: b.cols, rows: b.rows, need: b.cells.map(v => (mod - v) % mod) };
+}
+function parseSolverOutput(lines) {
+const i = lines.indexOf('SOLVED');
+if (i < 0) return lines.includes('NOSOLUTION') ? { status: 'nosolution' } : null;
+const moves = lines.slice(i + 1).filter(l => /^\d+ \d+$/.test(l))
+.map(l => l.split(' ').map(Number));
+return { status: 'solved', moves };
+}
+const api = { iconKey, parsePage, legendIcons, usernameOf, ICON_URL, pieceCells, boardOf, specOf, apply, keyOf,
+expandPlan, needAfter, parseSolverOutput };
+root.ShapePuzzle = api;
+if (typeof module !== 'undefined' && module.exports) module.exports = api;
+})(R);
+const P = R.ShapePuzzle;
+const STORE = 'shapeshifterPlans', MAX_KEYS = 400;
+const GAME_URL = 'https://www.neopets.com/medieval/shapeshifter.phtml';
+const old = document.getElementById('sss-bookmark');
+if (old) old.remove();
+const host = document.createElement('div');
+host.id = 'sss-bookmark';
+const shadow = host.attachShadow({ mode: 'open' });
+shadow.innerHTML = `<style>
+:host { all: initial; }
+.card { position: fixed; top: 16px; right: 16px; z-index: 2147483647; width: 270px;
+display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px;
+font: 13px/1.4 -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+color: #1d1d1f; background: rgba(255,255,255,.94); border: .5px solid rgba(0,0,0,.12);
+border-radius: 14px; box-shadow: 0 12px 32px rgba(0,0,0,.16), 0 1px 3px rgba(0,0,0,.08); }
+.dot { flex: none; width: 8px; height: 8px; border-radius: 50%; margin-top: 6px; }
+.txt { flex: 1; min-width: 0; }
+.t { font-weight: 600; font-size: 14px; }
+.t b { color: #c76a00; }
+.s { color: #6e6e73; font-size: 12px; margin-top: 2px; }
+.x { flex: none; border: 0; background: none; font: 18px/1 sans-serif; color: #8e8e93; cursor: pointer; padding: 0 2px; }
+@media (prefers-color-scheme: dark) {
+.card { color: #f5f5f7; background: rgba(36,36,38,.94); border-color: rgba(255,255,255,.12); }
+.s { color: #98989d; } .t b { color: #ffb340; }
+}</style><div class="card"><span class="dot"></span><div class="txt"><div class="t"></div><div class="s"></div></div><button class="x" title="Stop following">×</button></div>`;
+(document.body || document.documentElement).append(host);
+const TONE = { ok: '#34c759', warn: '#ff9500', bad: '#ff3b30', info: '#007aff' };
+function say(tone, title, sub) {
+shadow.querySelector('.dot').style.background = TONE[tone];
+const t = shadow.querySelector('.t');
+t.textContent = '';
+t.append(...[].concat(title));
+shadow.querySelector('.s').textContent = sub || '';
+}
+const bold = s => { const b = document.createElement('b'); b.textContent = s; return b; };
+if (!/(^|\.)neopets\.com$/.test(location.hostname))
+return say('warn', 'Not the game page', 'Open the Shapeshifter game (the solver page has an “Open the game” button), then click this bookmark there.');
+function load() {
+try {
+const s = JSON.parse(localStorage.getItem(STORE));
+if (s && Array.isArray(s.order) && s.moves) return s;
+} catch (e) {}
+return { order: [], moves: {} };
+}
+function keep(steps) {
+const saved = load();
+for (const st of steps) {
+if (!(st.key in saved.moves)) saved.order.push(st.key);
+saved.moves[st.key] = st.moves;
+}
+while (saved.order.length > MAX_KEYS) delete saved.moves[saved.order.shift()];
+try { localStorage.setItem(STORE, JSON.stringify(saved)); } catch (e) {}
+}
+function takePlan(plan) {
+try {
+const steps = P.expandPlan(plan.board, plan.depth, plan.pieces, plan.moves);
+if (steps) { keep(steps); return true; }
+} catch (e) {}
+return false;
+}
+const solver = window.opener && !window.opener.closed ? window.opener : null;
+const asking = new Map(); // key -> Promise<reply|null>
+function ask(key, pz) {
+if (asking.has(key)) return asking.get(key);
+const p = new Promise(res => {
+let heard = false;
+const on = e => {
+if (e.source !== solver || !e.data || !e.data.sss) return;
+heard = true;
+if (e.data.sss === 'status' && e.data.state === 'solving') {
+if (current() === key) say('info', 'Solving…', 'The solver page is working on this board. The square lights up here when it is done.');
+return;
+}
+removeEventListener('message', on);
+res(e.data);
+};
+addEventListener('message', on);
+solver.postMessage({ sss: 'need', key, pz }, '*');
+setTimeout(() => { if (!heard) { removeEventListener('message', on); res(null); } }, 3000);
+});
+asking.set(key, p);
+p.then(() => asking.delete(key));
+return p;
+}
+const frame = document.createElement('iframe');
+frame.id = 'sss-frame';
+frame.src = GAME_URL; // never the current URL: it may be a move link
+frame.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;border:0;margin:0;z-index:2147483646;background:#fff';
+document.documentElement.style.overflow = 'hidden';
+shadow.querySelector('.x').onclick = () => { location.href = GAME_URL; }; // back to the plain page
+const doc = () => { try { return frame.contentDocument; } catch (e) { return null; } };
+let shownKey = null;
+const current = () => shownKey;
+async function show() {
+const d = doc();
+if (!d || !d.body) return say('warn', 'Left the game', 'Go back to the Shapeshifter page and click this bookmark again.');
+let pz;
+try { pz = P.parsePage(d); } catch (e) { return say('bad', 'Could not read the board', e.message); }
+if (!pz) {
+shownKey = null;
+return say('info', 'Following the game',
+'Start or continue a level: the square to click lights up by itself.');
+}
+const key = P.keyOf(pz.board, pz.depth, pz.pieces);
+shownKey = key;
+let moves = load().moves[key];
+if (!moves && solver) {
+say('info', 'Asking the solver page…', '');
+const reply = await ask(key, { board: pz.board, depth: pz.depth, pieces: pz.pieces, level: pz.level,
+username: P.usernameOf(d), icons: P.legendIcons(d) });
+if (reply && reply.sss === 'plan') takePlan(reply.plan);
+else if (reply && reply.sss === 'status') {
+if (current() === key) say(reply.tone || 'warn', reply.title || 'No answer', reply.text || '');
+return;
+}
+moves = load().moves[key];
+}
+if (current() !== key || doc() !== d) return; // the frame moved on meanwhile
+if (!moves)
+return say('warn', 'This tab isn’t linked to the solver page',
+'On the solver page press “Open the game”, then click this bookmark in the tab it opens.');
+mark(d, pz, moves);
+}
+function mark(d, pz, moves) {
+if (!d.getElementById('sss-bookmark-style')) {
+const style = d.createElement('style');
+style.id = 'sss-bookmark-style';
+style.textContent = `
+img.sss-cover { outline: 3px solid rgba(0,122,255,.9) !important; outline-offset: -3px; }
+img.sss-click { outline: 3px solid #ff9500 !important; outline-offset: -3px;
+animation: sss-pulse .8s ease-in-out infinite alternate; }
+@keyframes sss-pulse { to { outline-color: rgba(255,149,0,.2); } }`;
+(d.head || d.documentElement).append(style);
+}
+d.querySelectorAll('img.sss-cover, img.sss-click')
+.forEach(i => i.classList.remove('sss-cover', 'sss-click'));
+if (!moves.length) return say('ok', 'Board cleared', '');
+const cells = Array.from(pz.boardTable.querySelectorAll('tr'),
+tr => Array.from(tr.querySelectorAll('img'))).filter(r => r.length);
+const [col, row] = moves[0];
+for (const [dc, dr] of P.pieceCells(pz.pieces[0])) {
+const img = (cells[row + dr] || [])[col + dc];
+if (img) img.classList.add('sss-cover');
+}
+const target = (cells[row] || [])[col];
+if (target) {
+target.classList.add('sss-click');
+try { target.scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch (e) {}
+}
+say('ok', ['Click column ', bold(String(col + 1)), ', row ', bold(String(row + 1))],
+(moves.length === 1 ? 'Last piece. ' : `${moves.length} pieces left. `) +
+'Orange = the square to click, blue = what the piece covers. The next one lights up by itself.');
+}
+say('info', 'Loading the game…', '');
+frame.addEventListener('load', show);
+document.body.append(frame);
+window.__sssFollow = show;
+})();</script>
+<script>// Puzzle logic shared by the solver page, the bookmarklet and the tests:
+// reading a Shapeshifter page, replaying moves, and the cache keys.
+//
+// Text spec format (the solver takes the same):
+//   board  = comma-separated rows of state digits, 0 = goal ("101,000,000")
+//   piece  = comma-separated rows of 0/1, 1 = filled ("111,100")
+//   depth  = number of non-goal states; cells cycle modulo depth + 1
+// A move is [column, row] of the piece's top-left corner (the cell you click),
+// both counted from 0 at the board's top-left.
+(function (root) {
+  'use strict';
+
+  const LEGEND_SELECTOR = "table[border='1'][bordercolor='gray'] img[name='i_']";
+  const BOARD_SELECTOR =
+    "table[align='center'][cellpadding='0'][cellspacing='0'][border='0']";
+
+  // Board and legend images look like .../shapeshifter/gob_0.gif, and the
+  // game swaps the trailing frame digit when a cell is hovered, so the icon
+  // name alone carries the state.
+  function iconKey(src) {
+    return (src || '').split('?')[0].replace(/_\d+(\.[A-Za-z0-9]+)$/, '$1');
+  }
+
+  // Reads the puzzle off a Shapeshifter page (a Document). Returns
+  // {board, depth, pieces, level, boardTable} or null when the page holds no
+  // puzzle (level won, try-again screen, not logged in, ...).
+  function parsePage(doc) {
+    // The legend shows the cycle as "1 -> 2 -> ... -> goal -> 1"; drop the
+    // repeated last image and rotate so the goal state lands on index 0.
+    let legend = Array.from(doc.querySelectorAll(LEGEND_SELECTOR)).slice(0, -1);
+    if (!legend.length) return null;
+    legend = [legend[legend.length - 1], ...legend.slice(0, -1)];
+    const state = new Map();
+    legend.forEach((img, k) => state.set(iconKey(img.getAttribute('src')), k));
+    const depth = Math.max(state.size - 1, 0);
+
+    const boardTable = doc.querySelector(BOARD_SELECTOR);
+    if (!boardTable) return null;
+    const rows = [];
+    for (const tr of boardTable.querySelectorAll('tr')) {
+      let line = '';
+      for (const img of tr.querySelectorAll('img')) {
+        const k = state.get(iconKey(img.getAttribute('src')));
+        if (k === undefined) throw new Error('A board cell image matches no legend entry.');
+        line += k;
+      }
+      if (line) rows.push(line);
+    }
+    if (!rows.length) return null;
+
+    // Pieces: every table drawn with square.gif cells, in page order (the
+    // active shape first, then the ones still to come). A row's empty cells
+    // are bare <td>s, so each <td> counts its squares.
+    const tables = [];
+    for (const img of doc.querySelectorAll("img[src*='shapeshifter/square']")) {
+      const t = img.closest('table');
+      if (t && !tables.includes(t)) tables.push(t);
+    }
+    const pieces = tables.map(t => Array.from(t.querySelectorAll('tr'), tr =>
+      Array.from(tr.querySelectorAll('td'),
+        td => td.querySelectorAll("img[src*='shapeshifter/square']").length).join('')
+    ).join(','));
+    if (!pieces.length) return null;
+
+    const m = /LEVEL\s+(\d+)/i.exec(Array.from(doc.querySelectorAll('big'),
+      b => b.textContent).join(' '));
+    return { board: rows.join(','), depth, pieces, level: m ? +m[1] : null, boardTable };
+  }
+
+  // The legend's icon URLs in state order (goal first), for drawing the
+  // board on the solver page. Only plain images.neopets.com URLs pass.
+  const ICON_URL = /^https:\/\/images\.neopets\.com\/[\w\/.-]+$/;
+  function legendIcons(doc) {
+    let legend = Array.from(doc.querySelectorAll(LEGEND_SELECTOR)).slice(0, -1);
+    if (!legend.length) return [];
+    legend = [legend[legend.length - 1], ...legend.slice(0, -1)];
+    return legend.map(img => {
+      const s = img.getAttribute('src') || '';
+      return s.startsWith('//') ? 'https:' + s : s;
+    }).filter(s => ICON_URL.test(s));
+  }
+
+  // The logged-in Neopets username: the header's lookup link, else the
+  // page's analytics setup (appInsightsUserName = 'name'). Null when
+  // logged out.
+  function usernameOf(doc) {
+    const link = doc.querySelector('td.user a[href*="userlookup.phtml?user="]');
+    if (link && link.textContent.trim()) return link.textContent.trim();
+    for (const sc of doc.querySelectorAll('script:not([src])')) {
+      const m = /appInsightsUserName\s*=\s*['"]([^'"]+)['"]/.exec(sc.textContent);
+      if (m) return m[1];
+    }
+    return null;
+  }
+
+  function pieceCells(spec) {
+    const cells = [];
+    spec.split(',').forEach((row, r) => {
+      for (let c = 0; c < row.length; c++) if (row[c] === '1') cells.push([c, r]);
+    });
+    return cells;
+  }
+
+  function boardOf(spec) {
+    const rows = spec.split(',');
+    return { cols: rows[0].length, rows: rows.length,
+             cells: Array.from(rows.join(''), Number) };
+  }
+
+  function specOf(b) {
+    const out = [];
+    for (let r = 0; r < b.rows; r++)
+      out.push(b.cells.slice(r * b.cols, (r + 1) * b.cols).join(''));
+    return out.join(',');
+  }
+
+  // Places a piece in place on a board object; false if it does not fit.
+  function apply(b, depth, pieceSpec, [col, row]) {
+    const mod = depth + 1;
+    const cells = pieceCells(pieceSpec);
+    for (const [dc, dr] of cells)
+      if (col + dc >= b.cols || row + dr >= b.rows || col < 0 || row < 0) return false;
+    for (const [dc, dr] of cells) {
+      const o = col + dc + (row + dr) * b.cols;
+      b.cells[o] = (b.cells[o] + 1) % mod;
+    }
+    return true;
+  }
+
+  function keyOf(board, depth, pieces) {
+    return depth + '|' + board + '|' + pieces.join(';');
+  }
+
+  // Replays a full solution. Returns one {key, moves} per position along the
+  // way (moves = what is left to play from there), or null if the moves do
+  // not clear the board — nothing the solver says is trusted unreplayed.
+  function expandPlan(board, depth, pieces, moves) {
+    if (moves.length !== pieces.length) return null;
+    const b = boardOf(board), steps = [];
+    for (let i = 0; i < pieces.length; i++) {
+      steps.push({ key: keyOf(specOf(b), depth, pieces.slice(i)), moves: moves.slice(i) });
+      if (!apply(b, depth, pieces[i], moves[i])) return null;
+    }
+    return b.cells.every(v => v === 0) ? steps : null;
+  }
+
+  // Hits each cell still needs after the first k moves (0 = done).
+  function needAfter(board, depth, pieces, moves, k) {
+    const b = boardOf(board), mod = depth + 1;
+    for (let i = 0; i < k && i < moves.length; i++) apply(b, depth, pieces[i], moves[i]);
+    return { cols: b.cols, rows: b.rows, need: b.cells.map(v => (mod - v) % mod) };
+  }
+
+  // "SOLVED" + "col row" lines, or "NOSOLUTION" (the solver's stdout).
+  function parseSolverOutput(lines) {
+    const i = lines.indexOf('SOLVED');
+    if (i < 0) return lines.includes('NOSOLUTION') ? { status: 'nosolution' } : null;
+    const moves = lines.slice(i + 1).filter(l => /^\d+ \d+$/.test(l))
+      .map(l => l.split(' ').map(Number));
+    return { status: 'solved', moves };
+  }
+
+  const api = { iconKey, parsePage, legendIcons, usernameOf, ICON_URL, pieceCells, boardOf, specOf, apply, keyOf,
+                expandPlan, needAfter, parseSolverOutput };
+  root.ShapePuzzle = api;
+  if (typeof module !== 'undefined' && module.exports) module.exports = api;
+})(globalThis);
+</script>
+<script>// Unlock codes for levels above FREE_LEVELS.
+//
+// A code is an Ed25519 signature over the buyer's email address (or, for
+// codes issued before 2026-11-18, their Neopets username), written in
+// Crockford base32. Only the public key lives here, so the solver can check a
+// code but cannot make one; codes come from the separate generator. A code
+// made for one email fails for every other email.
+(function (root) {
+  'use strict';
+
+  const FREE_LEVELS = 39; // levels 1-39 free, 40 and up need a code
+  const PUBLIC_KEY = '3gsbuHAapcqouARgNp7EBwxwIegWGWIx9224KsX23sY=';
+  const ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
+
+  // What gets signed. Emails and Neopets usernames are both compared without
+  // case. A username can't contain '@', so the two kinds never collide.
+  const isEmail = id => String(id).includes('@');
+  const message = id => (isEmail(id) ? 'SSS2:' : 'SSS1:') + String(id).trim().toLowerCase();
+
+  // Tolerates spaces, dashes, lower case and the usual look-alikes.
+  function normalize(code) {
+    return String(code).toUpperCase().replace(/[\s-]/g, '')
+      .replace(/O/g, '0').replace(/[IL]/g, '1').replace(/U/g, 'V');
+  }
+
+  function decode(code) {
+    const s = normalize(code);
+    let bits = 0, acc = 0;
+    const out = [];
+    for (const ch of s) {
+      const v = ALPHABET.indexOf(ch);
+      if (v < 0) return null;
+      acc = (acc << 5) | v;
+      bits += 5;
+      if (bits >= 8) {
+        bits -= 8;
+        out.push((acc >> bits) & 255);
+      }
+    }
+    return out.length === 64 ? new Uint8Array(out) : null;
+  }
+
+  let keyPromise = null;
+  function publicKey() {
+    if (!keyPromise) {
+      const raw = Uint8Array.from(atob(PUBLIC_KEY), c => c.charCodeAt(0));
+      keyPromise = crypto.subtle.importKey('raw', raw, { name: 'Ed25519' }, false, ['verify']);
+    }
+    return keyPromise;
+  }
+
+  async function verify(username, code) {
+    if (!username || !code) return false;
+    const sig = decode(code);
+    if (!sig) return false;
+    try {
+      return await crypto.subtle.verify({ name: 'Ed25519' }, await publicKey(), sig,
+        new TextEncoder().encode(message(username)));
+    } catch (e) {
+      return false;
+    }
+  }
+
+  const api = { FREE_LEVELS, isEmail, message, normalize, decode, verify };
+  if (typeof module === 'object' && module.exports) module.exports = api;
+  else root.ShapeLicence = api;
+})(typeof globalThis !== 'undefined' ? globalThis : this);
+</script>
+<script>// Standalone Shapeshifter Solver: one HTML file, no extension.
+//
+// Three steps, top to bottom:
+//  1. Ctrl+A / Ctrl+C on the game page copies its HTML, which puzzle.js reads
+//     exactly; Ctrl+V here.
+//  2. Solve (step 2 card): progress, or the unlock form for locked levels.
+//  3. Place the pieces (step 3 card), or use the bookmarklet: in a game tab
+//     opened from here it sends each board over (postMessage to its opener),
+//     gets the answer back and outlines the square to click.
+// The solver is the extension's C solver, built single-threaded; several
+// copies run in workers, one per strategy, and the first checked answer wins.
+(() => {
+  'use strict';
+  const P = globalThis.ShapePuzzle, L = globalThis.ShapeLicence;
+  const $ = id => document.getElementById(id);
+  const MAC = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
+  const HARD_AFTER_S = 180;
+
+  const store = {
+    get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} },
+  };
+
+  if (MAC) {
+    for (const [cls, txt] of [['k-a', '⌘A'], ['k-c', '⌘C'], ['k-v', '⌘V'], ['k-minus', '⌘−'], ['k-bar', '⌘⇧B']])
+      document.querySelectorAll('.' + cls).forEach(k => { k.textContent = txt; });
+  }
+
+  // ------------------------------------------------------------ state
+  const cache = new Map(); // position key -> moves still to play from there
+  let cur = null;          // {board, depth, pieces, level, username, icons}
+  let view = { status: 'empty' };
+  let k = 0;               // which move of the plan is shown (0 = next)
+  const solveEl = $('solve'), answerEl = $('answer');
+
+  // ------------------------------------------------------------ solver
+  const SOLVER_SRC = $('solver-src').textContent;
+  const BOOT = `
+self.onmessage = e => {
+  const out = [], { args, env } = e.data;
+  createSolver({
+    arguments: args,
+    preRun: [m => Object.assign(m.ENV, env)],
+    print: t => out.push(t),
+    printErr: t => postMessage({ line: t }),
+    onExit: () => postMessage({ done: out }),
+    onAbort: w => postMessage({ error: 'The solver crashed: ' + w }),
+  }).catch(err => { if (!(err && err.name === 'ExitStatus')) postMessage({ error: String(err && err.message || err) }); });
+};`;
+  let solverURL = null;
+  const ROLES = {
+    worker: { SOLVER_ROLE: 'worker', SOLVER_NCPU: '1' },
+    guided: { SOLVER_ROLE: 'guided', SOLVER_NCPU: '8', SOLVER_ANNEAL: '0' },
+    annealer: { SOLVER_ROLE: 'annealer', SOLVER_NCPU: '8', SOLVER_ANNEAL: '1', SOLVER_GUIDED: '0', SOLVER_TABLE: '0' },
+  };
+  let job = null; // {key, workers, started, line, timer}
+
+  function stopSolve() {
+    if (!job) return;
+    job.workers.forEach(w => w.terminate());
+    clearInterval(job.timer);
+    job = null;
+  }
+
+  function storePlan(pz, moves) {
+    const steps = P.expandPlan(pz.board, pz.depth, pz.pieces, moves);
+    if (!steps) return false;
+    for (const s of steps) cache.set(s.key, s.moves);
+    return true;
+  }
+
+  function solve() {
+    stopSolve();
+    const pz = cur, key = P.keyOf(pz.board, pz.depth, pz.pieces);
+    solverURL = solverURL || URL.createObjectURL(new Blob([SOLVER_SRC, BOOT], { type: 'text/javascript' }));
+    const roles = (navigator.hardwareConcurrency || 2) >= 3 ? Object.keys(ROLES) : ['worker', 'guided'];
+    const args = [String(pz.depth), pz.board, ...pz.pieces];
+    job = { key, workers: [], started: Date.now(), line: '' };
+    view = { status: 'solving' };
+    for (const role of roles) {
+      let w;
+      try { w = new Worker(solverURL); } catch (e) { fail('This browser would not start the solver: ' + e.message); return; }
+      job.workers.push(w);
+      w.onmessage = ({ data }) => {
+        if (!job || job.key !== key) return;
+        if (data.line != null) {
+          if (role === 'worker') { job.line = data.line.replace(/^solver:\s*/, ''); tick(); }
+          return;
+        }
+        if (data.error) { if (role === 'worker') fail(data.error); return; }
+        const r = P.parseSolverOutput(data.done || []);
+        if (r && r.status === 'solved') {
+          if (!storePlan(pz, r.moves)) { if (role === 'worker') fail('The answer failed its replay check.'); return; }
+          stopSolve();
+          showPosition();
+        } else if (r && r.status === 'nosolution' && role === 'worker') {
+          stopSolve();
+          view = { status: 'nosolution' };
+          render();
+        }
+      };
+      w.onerror = e => { e.preventDefault(); if (role === 'worker') fail('The solver failed to start: ' + (e.message || 'unknown error')); };
+      w.postMessage({ args, env: ROLES[role] });
+    }
+    job.timer = setInterval(tick, 1000);
+    render();
+  }
+
+  function fail(message) {
+    stopSolve();
+    view = { status: 'error', message };
+    render();
+  }
+
+  // ------------------------------------------------------------ positions
+  // Above FREE_LEVELS a code is needed. A page whose level can't be read
+  // counts as locked too (otherwise cutting the level text out of a pasted
+  // page would skip the check).
+  const needsCode = pz => pz.level == null || pz.level > L.FREE_LEVELS;
+  // Saved as {id, code}: id is the email the code was made for. Codes made
+  // before email codes were saved as {user, code} and stay tied to that
+  // Neopets username.
+  function savedUnlock() {
+    const s = store.get('sssUnlock');
+    return s && s.code && (s.id || s.user) ? { id: String(s.id || s.user), code: s.code } : null;
+  }
+  function unlockedFor(pz) {
+    if (!needsCode(pz)) return Promise.resolve(true);
+    const s = savedUnlock();
+    if (!s) return Promise.resolve(false);
+    if (!L.isEmail(s.id) && (!pz.username || pz.username.toLowerCase() !== s.id.toLowerCase())) return Promise.resolve(false);
+    return L.verify(s.id, s.code);
+  }
+
+  // Email + code form, used in the License type panel and in step 2 when a
+  // level is locked.
+  function unlockForm(onDone) {
+    const box = el('div', 'unlockform');
+    const s = savedUnlock();
+    const le = el('label', null, 'Email address the code was made for');
+    const email = el('input');
+    email.type = 'email'; email.autocomplete = 'email'; email.spellcheck = false;
+    email.placeholder = 'you@example.com';
+    if (s && L.isEmail(s.id)) email.value = s.id;
+    const lc = el('label', null, 'Unlock code');
+    const code = el('textarea');
+    code.spellcheck = false;
+    code.placeholder = 'XXXXX-XXXXX-…';
+    const err = el('div', 'err');
+    const go = el('button', '', 'Unlock');
+    go.onclick = async () => {
+      const who = email.value.trim();
+      if (!who) { err.textContent = 'Enter the email address the code was made for.'; email.focus(); return; }
+      if (!code.value.trim()) { err.textContent = 'Paste your unlock code.'; code.focus(); return; }
+      if (await L.verify(who, code.value)) {
+        err.textContent = '';
+        store.set('sssUnlock', { id: who, code: L.normalize(code.value) });
+        onUnlocked();
+        if (onDone) onDone(who);
+      } else err.textContent = L.isEmail(who)
+        ? `That code is not valid for ${who}. Check the email is the one the code was made for.`
+        : 'Enter the email address the code was made for.';
+    };
+    email.onkeydown = e => { if (e.key === 'Enter') code.focus(); };
+    const btns = el('div', 'nav'); btns.append(go);
+    box.append(le, email, lc, code, btns, err);
+    return box;
+  }
+
+  // The licence type button, top right: free or paid version. Opens a
+  // small panel with the unlock form (free) or who it is unlocked for.
+  async function drawUnlockCard() {
+    const body = $('unlockBody'), sum = $('unlockSum');
+    if (!body) return;
+    body.textContent = '';
+    const s = savedUnlock();
+    const ok = s && L.isEmail(s.id) && await L.verify(s.id, s.code);
+    $('unlockCard').classList.toggle('done', !!ok);
+    if (ok) {
+      sum.textContent = 'Paid version';
+      const p = el('p', 'msg');
+      p.append('All levels unlocked for ', el('b', null, s.id), '. Every level works on this computer.');
+      const rm = el('button', 'ghost', 'Remove code');
+      rm.onclick = () => { try { localStorage.removeItem('sssUnlock'); } catch (e) {} drawUnlockCard(); };
+      const btns = el('div', 'nav'); btns.append(rm);
+      body.append(p, btns);
+    } else {
+      sum.textContent = 'Free version';
+      body.append(el('p', 'msg', `Levels 1–${L.FREE_LEVELS} are free. To unlock level ${L.FREE_LEVELS + 1} and up, enter the unlock code you were sent with the email address it was made for.`),
+        unlockForm(() => { $('unlockCard').open = true; }));
+    }
+  }
+  function onUnlocked() {
+    drawUnlockCard();
+    if (cur && view && view.status === 'locked') solve();
+  }
+
+  async function setPuzzle(pz) {
+    const key = P.keyOf(pz.board, pz.depth, pz.pieces);
+    if (cur && P.keyOf(cur.board, cur.depth, cur.pieces) === key) {
+      if (pz.icons && pz.icons.length) cur.icons = pz.icons;
+      return;
+    }
+    cur = pz;
+    k = 0;
+    nameBookmark();
+    view = { status: 'empty' }; // nothing known about this board yet
+    if (cache.has(key)) {
+      if (job && job.key !== key) stopSolve();
+      showPosition();
+      return;
+    }
+    if (job) stopSolve();
+    if (!(await unlockedFor(pz))) { view = { status: 'locked', noLevel: pz.level == null }; render(); return; }
+    if (cur !== pz) return;
+    solve();
+  }
+
+  function showPosition() {
+    const key = P.keyOf(cur.board, cur.depth, cur.pieces);
+    view = { status: 'solved', moves: cache.get(key) };
+    k = Math.min(k, view.moves.length);
+    render();
+  }
+
+  // ------------------------------------------------------------ bookmark
+  const bm = $('bm');
+  // The button's text is the bookmark's name once dragged: "Level 100_15:26".
+  function nameBookmark() {
+    const t = new Date();
+    const hm = String(t.getHours()).padStart(2, '0') + ':' + String(t.getMinutes()).padStart(2, '0');
+    bm.textContent = `Level ${cur && cur.level ? cur.level : '–'}_${hm}`;
+  }
+  nameBookmark();
+  setInterval(nameBookmark, 15000);
+  bm.href = 'javascript:' + encodeURIComponent($('bm-src').textContent);
+  bm.onclick = e => {
+    e.preventDefault();
+    $('bmStatus').className = 'status';
+    $('bmStatus').textContent = 'Drag the button to the bookmarks bar instead of clicking it here.';
+  };
+
+  // ------------------------------------------------------------ rendering
+  function el(tag, cls, text) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+  const clock = s => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+  const TONE = { solving: 'var(--accent)', solved: 'var(--ok)', nosolution: 'var(--warn)',
+                 error: 'var(--bad)', locked: 'var(--lock)' };
+
+  function tick() {
+    if (view.status !== 'solving' || !job) return;
+    const s = Math.round((Date.now() - job.started) / 1000);
+    const sub = solveEl.querySelector('.hd .s'), prog = solveEl.querySelector('.prog'),
+          hint = solveEl.querySelector('.hint');
+    if (sub) sub.textContent = `${levelText()}Solving… ${clock(s)}`;
+    if (prog) prog.textContent = job.line;
+    if (hint) hint.classList.toggle('hidden', s < HARD_AFTER_S);
+  }
+
+  const levelText = () => cur && cur.level ? `Level ${cur.level} · ` : '';
+
+  function header(title, sub) {
+    const hd = el('div', 'hd');
+    const dot = el('span', 'dot');
+    dot.style.background = TONE[view.status] || 'var(--faint)';
+    const box = el('div', 'grow');
+    box.append(el('div', 't', title), el('div', 's', sub));
+    hd.append(dot, box);
+    return hd;
+  }
+
+  // State of every cell after the first n moves.
+  function boardAfter(n) {
+    const b = P.boardOf(cur.board);
+    const mv = view.moves || [];
+    for (let i = 0; i < n && i < mv.length; i++) P.apply(b, cur.depth, cur.pieces[i], mv[i]);
+    return b;
+  }
+
+  function drawBoard(n) {
+    const b = boardAfter(n);
+    const avail = Math.min(answerEl.clientWidth || 420, 620) - 40;
+    const size = Math.max(14, Math.min(34, Math.floor(avail / (b.cols + 1)) - 1));
+    const grid = el('div', 'board');
+    grid.style.gridTemplateColumns = `${size * 0.6}px repeat(${b.cols}, ${size}px)`;
+    const cover = new Set();
+    let click = -1;
+    if (view.moves && n < view.moves.length) {
+      const [c0, r0] = view.moves[n];
+      click = c0 + r0 * b.cols;
+      for (const [dc, dr] of P.pieceCells(cur.pieces[n])) cover.add(c0 + dc + (r0 + dr) * b.cols);
+    }
+    grid.append(el('div'));
+    for (let c = 0; c < b.cols; c++) grid.append(el('div', 'axis', String(c + 1)));
+    const icons = cur.icons || [];
+    const mod = cur.depth + 1;
+    for (let r = 0; r < b.rows; r++) {
+      const ax = el('div', 'axis', String(r + 1));
+      ax.style.lineHeight = size + 'px';
+      grid.append(ax);
+      for (let c = 0; c < b.cols; c++) {
+        const o = c + r * b.cols, v = b.cells[o];
+        const cell = el('div', 'cell' + (cover.has(o) ? ' cover' : '') + (o === click ? ' click' : ''));
+        cell.style.width = cell.style.height = size + 'px';
+        if (icons[v]) cell.style.backgroundImage = `url("${icons[v]}")`;
+        else {
+          const need = (mod - v) % mod;
+          if (need) cell.style.background = `rgba(var(--ink-rgb), ${(0.14 + 0.56 * need / cur.depth).toFixed(2)})`;
+        }
+        grid.append(cell);
+      }
+    }
+    return grid;
+  }
+
+  function drawPiece(spec, px = 12) {
+    const rows = spec.split(',');
+    const g = el('div', 'piece');
+    g.style.gridTemplateColumns = `repeat(${rows[0].length}, ${px}px)`;
+    g.style.setProperty('--px', px + 'px');
+    for (const row of rows) for (const ch of row) g.append(el('i', ch === '1' ? 'on' : ''));
+    return g;
+  }
+
+  // Marks each step card: done, the one to do now, or still to come.
+  function markSteps(now) {
+    [1, 2, 3].forEach(n => {
+      const c = $('step' + n);
+      c.classList.toggle('done', n < now);
+      c.classList.toggle('on', n === now);
+      c.classList.toggle('todo', n > now);
+    });
+  }
+  let shownStep = 1;
+  function reveal(n) {
+    if (n === shownStep) return;
+    shownStep = n;
+    const r = $('step' + n).getBoundingClientRect();
+    if (r.top > innerHeight * .7 || r.top < 0) $('step' + n).scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function render() {
+    renderSteps();
+    answerGame();
+  }
+  function renderSteps() {
+    solveEl.textContent = '';
+    answerEl.textContent = '';
+    const waiting = el('p', 'muted', 'The answer appears here once step 2 is done.');
+    if (view.status === 'empty' || !cur) {
+      markSteps(1);
+      solveEl.append(el('p', 'muted', 'Starts by itself when you paste the board.'));
+      answerEl.append(waiting);
+      return;
+    }
+    const size = `${cur.pieces.length} piece${cur.pieces.length === 1 ? '' : 's'} · ${cur.board.split(',')[0].length}×${cur.board.split(',').length} board`;
+    if (view.status === 'solved') {
+      markSteps(3);
+      solveEl.append(header('Solved', `${levelText()}${size}`));
+      renderSolved();
+      reveal(3);
+      return;
+    }
+    markSteps(2);
+    answerEl.append(waiting);
+    reveal(2);
+    switch (view.status) {
+      case 'solving': {
+        solveEl.append(header('Solving…', `${levelText()}Solving… 0:00`));
+        const bar = el('div', 'bar'); bar.append(el('i'));
+        solveEl.append(bar, el('div', 'prog', job ? job.line : ''));
+        const hint = el('p', 'msg muted hint hidden',
+          'This board is a hard one. If it keeps going, you can lose the board on purpose (place the pieces anywhere) and the game deals a new board at the same level.');
+        const btns = el('div', 'nav');
+        const stop = el('button', 'danger', 'Stop');
+        stop.onclick = () => { stopSolve(); view = { status: 'stopped' }; render(); };
+        btns.append(stop);
+        solveEl.append(hint, btns);
+        tick();
+        return;
+      }
+      case 'stopped': {
+        solveEl.append(header('Stopped', levelText() + size));
+        const again = el('button', 'ghost', 'Solve again');
+        again.onclick = solve;
+        const btns = el('div', 'nav'); btns.append(again);
+        solveEl.append(btns);
+        return;
+      }
+      case 'nosolution':
+        solveEl.append(header('No answer from here', levelText() + size),
+          el('p', 'msg', 'This position cannot be cleared with the pieces left. Lose the board on purpose (place the pieces anywhere) and the game deals a new one at the same level.'));
+        return;
+      case 'error':
+        solveEl.append(header('Something went wrong', levelText() + size), el('p', 'err', view.message));
+        return;
+      case 'locked':
+        return renderLocked();
+    }
+  }
+
+  function renderSolved() {
+    const moves = view.moves, total = moves.length;
+    const done = Math.min(k, total);
+    answerEl.append(header(!total ? 'Board cleared' : k >= total ? 'All pieces placed' : `Piece ${k + 1} of ${total}`,
+      levelText().replace(/ · $/, '')));
+    if (!total) return;
+    const prog = el('div', 'meter');
+    const fill = el('i');
+    fill.style.width = (100 * done / total).toFixed(1) + '%';
+    prog.append(fill);
+    answerEl.append(prog);
+    if (k >= total) {
+      answerEl.append(el('p', 'next', 'That was the last piece. The level should be cleared.'), drawBoard(total));
+    } else {
+      const [c, r] = moves[k];
+      const next = el('div', 'next');
+      next.append(document.createTextNode('Click column '), el('b', null, String(c + 1)),
+        document.createTextNode(', row '), el('b', null, String(r + 1)));
+      answerEl.append(next);
+      const wrap = el('div', 'boardwrap');
+      const side = el('div', 'side');
+      side.append(el('div', 'tiny', 'This piece'), drawPiece(cur.pieces[k], 16));
+      if (k + 1 < total) side.append(el('div', 'tiny', 'Then'), drawPiece(cur.pieces[k + 1], 9));
+      wrap.append(drawBoard(k), side);
+      const legend = el('div', 'keyrow');
+      legend.append(el('span', 'sw click'), 'Click this square', el('span', 'sw cover'), 'The piece lands here');
+      answerEl.append(wrap, legend);
+      answerEl.append(el('div', 'tiny', 'The square to click is the piece’s top-left corner, even when that corner of the piece is empty.'));
+    }
+    const nav = el('div', 'nav');
+    const prev = el('button', 'ghost', '← Back');
+    prev.disabled = k === 0;
+    prev.onclick = () => { k--; render(); };
+    const fwd = el('button', '', k < total - 1 ? 'Placed it → next' : 'Placed it');
+    fwd.disabled = k >= total;
+    fwd.onclick = () => { k++; render(); };
+    nav.append(prev, fwd);
+    nav.append(el('span', 'tiny keyhint', 'or use the ← → keys'));
+    answerEl.append(nav);
+    const list = el('div', 'list');
+    moves.forEach(([c, r], i) => {
+      const row = el('div', 'mv' + (i === k ? ' on' : i < k ? ' done' : ''));
+      row.append(el('span', 'n', String(i + 1)), drawPiece(cur.pieces[i]), el('span', 'pc', `col ${c + 1}, row ${r + 1}`));
+      row.onclick = () => { k = i; render(); };
+      list.append(row);
+    });
+    answerEl.append(list);
+  }
+
+  function renderLocked() {
+    const next = L.FREE_LEVELS + 1;
+    if (view.noLevel) {
+      solveEl.append(header('Can’t find the level number', ''),
+        el('p', 'msg', `Copy the whole game page (${MAC ? '⌘A then ⌘C' : 'Ctrl+A then Ctrl+C'}) and paste it again. Levels 1–${L.FREE_LEVELS} are free; with an unlock code any level works.`));
+    } else {
+      solveEl.append(header('Unlock code needed', levelText().replace(/ · $/, '')),
+        el('p', 'msg', `Levels 1–${L.FREE_LEVELS} are free. Level ${next} and up needs an unlock code. Enter it with the email address it was made for.`));
+    }
+    solveEl.append(unlockForm());
+  }
+
+  // ------------------------------------------------------------ paste
+  function readHTML(html, how) {
+    const status = $('pasteStatus');
+    let doc, pz;
+    try {
+      doc = new DOMParser().parseFromString(html, 'text/html');
+      pz = P.parsePage(doc);
+    } catch (e) {
+      status.className = 'status bad';
+      status.textContent = 'Could not read the board: ' + e.message;
+      return;
+    }
+    if (!pz) {
+      status.className = 'status bad';
+      status.textContent = /shapeshifter/i.test(html)
+        ? 'That page has no board on it (level finished, or not started). Start the level, then copy again.'
+        : `That doesn't look like the Shapeshifter page. Select all on the game page (${MAC ? '⌘A' : 'Ctrl+A'}) before copying.`;
+      return;
+    }
+    take({ board: pz.board, depth: pz.depth, pieces: pz.pieces, level: pz.level,
+           username: P.usernameOf(doc), icons: P.legendIcons(doc) }, how);
+  }
+
+  function take(pz, how) {
+    const status = $('pasteStatus');
+    const n = pz.pieces.length;
+    status.className = 'status ok';
+    status.textContent = `Read ${how}: ${pz.board.split(',')[0].length}×${pz.board.split(',').length} board, ${n} piece${n === 1 ? '' : 's'}` +
+      (pz.level ? `, level ${pz.level}` : '') + '.';
+    setPuzzle(pz);
+  }
+
+  document.addEventListener('paste', e => {
+    if (e.target.closest && e.target.closest('textarea, input')) return;
+    const cd = e.clipboardData;
+    if (!cd) return;
+    e.preventDefault();
+    const html = cd.getData('text/html');
+    if (html && /shapeshifter/i.test(html)) return readHTML(html, 'the pasted page');
+    const text = cd.getData('text/plain');
+    if (text && /<html|<table/i.test(text)) return readHTML(text, 'the pasted page source');
+    const status = $('pasteStatus');
+    status.className = 'status bad';
+    status.textContent = `Nothing to read in what you pasted. On the game page press ${MAC ? '⌘A then ⌘C' : 'Ctrl+A then Ctrl+C'}, then paste here.`;
+  });
+
+  document.addEventListener('keydown', e => {
+    if (view.status !== 'solved' || (e.target.closest && e.target.closest('textarea, input'))) return;
+    if (e.key === 'ArrowRight' && k < view.moves.length) { k++; render(); }
+    if (e.key === 'ArrowLeft' && k > 0) { k--; render(); }
+  });
+
+
+  // ------------------------------------------------------------ game tab
+  // "Open the game" opens neopets in a tab this page is the opener of. The
+  // bookmark clicked there posts its board here and gets the answer back.
+  const GAME_URL = 'https://www.neopets.com/medieval/shapeshifter.phtml';
+  const openGame = () => { window.open(GAME_URL, 'sssGame'); };
+  $('openGame').onclick = $('openGame2').onclick = openGame;
+  // Once the bookmark has talked to this page, the set-up steps fold away.
+  function bmLinked(on) {
+    $('bmSetup').classList.toggle('hidden', on);
+    $('bmLive').classList.toggle('hidden', !on);
+  }
+  $('bmShowSetup').onclick = () => bmLinked(false);
+  // The bookmark sends the board it read (never the page itself, which holds
+  // the player's session tokens). Everything in it is checked before use.
+  function cleanPuzzle(p) {
+    if (!p || typeof p !== 'object') return null;
+    const { board, depth, pieces, level, username, icons } = p;
+    if (typeof board !== 'string' || board.length > 4000 || !/^\d+(,\d+)*$/.test(board)) return null;
+    const rows = board.split(',');
+    if (rows.some(r => r.length !== rows[0].length)) return null;
+    if (!Number.isInteger(depth) || depth < 1 || depth > 9 || /[^,]/.test(board) && Math.max(...board.replace(/,/g, '')) > depth) return null;
+    if (!Array.isArray(pieces) || !pieces.length || pieces.length > 300 ||
+        pieces.some(x => typeof x !== 'string' || x.length > 400 || !/^[01]+(,[01]+)*$/.test(x))) return null;
+    if (level != null && !(Number.isInteger(level) && level > 0 && level < 100000)) return null;
+    return { board, depth, pieces: pieces.slice(), level: level == null ? null : level,
+             username: typeof username === 'string' && /^\w{1,40}$/.test(username) ? username : null,
+             icons: Array.isArray(icons) ? icons.filter(x => typeof x === 'string' && P.ICON_URL.test(x)).slice(0, 10) : [] };
+  }
+  let gameAsk = null; // {source, origin, key, said}
+  window.addEventListener('message', e => {
+    if (!/^https:\/\/(www\.)?neopets\.com$/.test(e.origin)) return;
+    const d = e.data;
+    if (!d || d.sss !== 'need' || typeof d.key !== 'string') return;
+    const pz = cleanPuzzle(d.pz);
+    gameAsk = { source: e.source, origin: e.origin, key: d.key, said: false };
+    bmLinked(true);
+    if (pz && P.keyOf(pz.board, pz.depth, pz.pieces) === d.key) take(pz, 'the game tab');
+    answerGame();
+  });
+  function answerGame() {
+    if (!gameAsk) return;
+    const { source, origin } = gameAsk;
+    const send = m => { try { source.postMessage(m, origin); } catch (e) {} };
+    if (!cur || P.keyOf(cur.board, cur.depth, cur.pieces) !== gameAsk.key) {
+      send({ sss: 'status', tone: 'bad', title: 'The solver page could not read this board',
+             text: 'Copy the game page and paste it on the solver page instead.' });
+      gameAsk = null;
+      return;
+    }
+    const s = view.status;
+    if (s === 'empty') return; // still checking the licence; render() calls back
+    if (s === 'solving') {
+      if (!gameAsk.said) send({ sss: 'status', state: 'solving' });
+      gameAsk.said = true;
+      return;
+    }
+    if (s === 'solved')
+      send({ sss: 'plan', plan: { depth: cur.depth, board: cur.board, pieces: cur.pieces, moves: view.moves } });
+    else if (s === 'locked')
+      send({ sss: 'status', tone: 'warn', title: 'Unlock code needed',
+             text: `Levels 1–${L.FREE_LEVELS} are free. Enter your unlock code on the solver page (License type, top right), then click this bookmark again.` });
+    else if (s === 'nosolution')
+      send({ sss: 'status', tone: 'warn', title: 'No answer from here',
+             text: 'This position cannot be cleared with the pieces left. Lose the board on purpose and the game deals a new one.' });
+    else
+      send({ sss: 'status', tone: 'bad', title: 'The solver stopped', text: view.message || 'See the solver page.' });
+    gameAsk = null;
+  }
+
+  // Close the licence panel on a click outside it or Escape.
+  document.addEventListener('click', e => {
+    const d = $('unlockCard');
+    if (d.open && !d.contains(e.target)) d.open = false;
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') $('unlockCard').open = false; });
+
+  // Test hook: lets the test drive the page without a clipboard or a tab.
+  drawUnlockCard();
+  window.__shapeshifter = { readHTML, setPuzzle, state: () => ({ view, cur, k, cache: cache.size }) };
+  render();
+})();
+</script>
+</body>
+</html>
