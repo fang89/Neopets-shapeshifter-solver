@@ -147,14 +147,3 @@ screenshot.
 **The bookmark.** One click wraps the game in a full-page frame and talks to the solver tab with
 `postMessage`. It sends the solver only the parsed board, never the page itself, so nothing from
 your session leaves the game tab. It only highlights squares: it never clicks and never submits.
-
-<p align="center"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/divider-dark.svg"><img src="docs/divider.svg" alt="" width="100%"></picture></p>
-
-## More Neopets solvers
-
-| Tool | What it does | Links |
-|---|---|:-:|
-| **Sewage Surfer Solver** | Shows where each pipe goes, one move at a time, and when to discard, press Start Flow or restart. | <a href="https://fang89.github.io/Neopets-sewagesurfer-solver/">Link&nbsp;to&nbsp;solver</a><br><a href="https://github.com/fang89/Neopets-sewagesurfer-solver">Github&nbsp;link</a> |
-| **NeggSweeper Solver** | Colours every negg safe, bad or best bet with exact odds. Never clicks. | <a href="https://fang89.github.io/Neopets-neggsweeper-solver/">Link&nbsp;to&nbsp;solver</a><br><a href="https://github.com/fang89/Neopets-neggsweeper-solver">Github&nbsp;link</a> |
-| **Puzzles of the Past Solver** | Shows where each piece goes, with a crosshair at its home. | <a href="https://fang89.github.io/Neopets-puzzlesofthepast-solver/">Link&nbsp;to&nbsp;solver</a><br><a href="https://github.com/fang89/Neopets-puzzlesofthepast-solver">Github&nbsp;link</a> |
-| **Grand Theft Ummagine Guide** | A drawn map and key-tap route for every level. | <a href="https://github.com/fang89/Neopets-Grandtheftummagine-guide">Github&nbsp;link</a> |
