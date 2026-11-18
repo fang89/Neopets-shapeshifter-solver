@@ -156,6 +156,6 @@ My other Neopets tools. All free; none of them plays for you or sends a score.
 
 | Tool | What it does | |
 |---|---|:-:|
-| **Sewage Surfer Solver** | Shows where each pipe goes, one move at a time, and when to discard, press Start Flow or restart. | <a href="https://fang89.github.io/Neopets-sewagesurfer-solver/">▶ Open</a> · <a href="https://github.com/fang89/Neopets-sewagesurfer-solver">Source</a> |
-| **NeggSweeper Solver** | Colours every negg safe, bad or best bet with exact odds. Never clicks. | <a href="https://fang89.github.io/Neopets-neggsweeper-solver/">▶ Open</a> · <a href="https://github.com/fang89/Neopets-neggsweeper-solver">Source</a> |
-| **Grand Theft Ummagine Guide** | A drawn map and key-tap route for every level. | <a href="https://github.com/fang89/grand-theft-ummagine-guide">Source</a> |
+| **Sewage Surfer Solver** | Shows where each pipe goes, one move at a time, and when to discard, press Start Flow or restart. | <a href="https://fang89.github.io/Neopets-sewagesurfer-solver/">Link to solver</a><br><a href="https://github.com/fang89/Neopets-sewagesurfer-solver">Github link</a> |
+| **NeggSweeper Solver** | Colours every negg safe, bad or best bet with exact odds. Never clicks. | <a href="https://fang89.github.io/Neopets-neggsweeper-solver/">Link to solver</a><br><a href="https://github.com/fang89/Neopets-neggsweeper-solver">Github link</a> |
+| **Grand Theft Ummagine Guide** | A drawn map and key-tap route for every level. | <a href="https://github.com/fang89/grand-theft-ummagine-guide">Github link</a> |
