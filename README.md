@@ -9,13 +9,6 @@
   &nbsp;·&nbsp; <a href="#free-and-unlocked-levels">Unlock codes</a>
 </p>
 
-<p align="center">
-  <img alt="Runs in your browser" src="https://img.shields.io/badge/runs-in%20your%20browser-7c3aed">
-  <img alt="Nothing uploaded" src="https://img.shields.io/badge/uploads-none-2da44e">
-  <img alt="Never clicks for you" src="https://img.shields.io/badge/auto--click-never-f97316">
-  <img alt="Solver in WebAssembly" src="https://img.shields.io/badge/solver-C%20→%20WebAssembly-3b82f6">
-</p>
-
 ---
 
 **ShapeShifter Solver** works out the answer to a Neopets ShapeShifter board and shows you
