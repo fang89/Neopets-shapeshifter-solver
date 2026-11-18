@@ -13,7 +13,8 @@
 
 **ShapeShifter Solver** works out the answer to a Neopets ShapeShifter board and shows you
 where each piece goes. It's one web page. The solver runs on your own computer, so nothing
-is uploaded.
+is uploaded. Levels 1–39 are free. For level 40 and up, email **gregoryfang89@gmail.com**
+for an unlock code.
 
 ## How to use
 
@@ -107,5 +108,4 @@ hardest boards.*
 | **1 – 39** | Free |
 | **40 and up** | Unlock code |
 
-To get an unlock code, email **gregoryfang89@gmail.com**. Enter the code under **License type**
-at the top right of the solver.
+Enter your unlock code under **License type** at the top right of the solver.
